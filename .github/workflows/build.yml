@@ -34,9 +34,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: grammateus-windows-installer
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/latest.yml
           if-no-files-found: error
-      # Pushing a tag such as v0.2.0 publishes the installer on the Releases page.
+      # Pushing a tag such as v0.2.0 publishes the installer on the Releases page. latest.yml
+      # and the .blockmap file are what an installed copy reads to find and fetch an update.
       - name: Attach the installer to the release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
@@ -44,6 +47,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${GITHUB_REF_NAME#v}"
-          cp dist/*.exe "Grammateus-Setup-${version}.exe"
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Grammateus ${version}" --generate-notes --prerelease
-          gh release upload "$GITHUB_REF_NAME" "Grammateus-Setup-${version}.exe" --clobber
+          gh release upload "$GITHUB_REF_NAME" "dist/Grammateus-Setup-${version}.exe" "dist/Grammateus-Setup-${version}.exe.blockmap" dist/latest.yml --clobber

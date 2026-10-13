@@ -52,6 +52,10 @@ Windows installer all work on Windows 10.
   its part, pictures and music in place, and the roster, columns and announcements on
   the pages after the service. It works on bulletins laid out the way this program
   lays them out.
+- **It keeps itself up to date.** When the installed program starts, it asks the public
+  downloads page (`aubrika/grammateus-releases`) whether a newer version exists. If so, it
+  downloads it while you work and installs it when you close the program. Help → *Check for
+  a newer version…* does the same check by hand.
 - **Its own PDFs reopen exactly.** Every PDF the program makes carries the editable
   bulletin inside it, so a bulletin can be recovered from its PDF with nothing lost.
 

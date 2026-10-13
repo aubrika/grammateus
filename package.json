@@ -1,6 +1,6 @@
 {
   "name": "grammateus",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "private": true,
   "description": "Makes a folded, stapled Sunday bulletin as a print-ready PDF",
   "type": "module",
@@ -11,6 +11,7 @@
     "test": "node --test"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.6.205"
   },
@@ -35,7 +36,8 @@
       "perMachine": false,
       "createStartMenuShortcut": true,
       "createDesktopShortcut": false,
-      "shortcutName": "Grammateus"
+      "shortcutName": "Grammateus",
+      "artifactName": "Grammateus-Setup-${version}.${ext}"
     },
     "fileAssociations": [
       {
@@ -43,6 +45,13 @@
         "name": "Bulletin",
         "description": "Grammateus bulletin",
         "role": "Editor"
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "aubrika",
+        "repo": "grammateus-releases"
       }
     ]
   },

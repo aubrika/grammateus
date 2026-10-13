@@ -13,6 +13,8 @@ body { accent-color: var(--accent); font-family: var(--ui); font-size: 14px; col
 #bar .sheets { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 #bar .sheets b { color: var(--ink); min-width: 1ch; text-align: center; }
 #status { margin-left: auto; color: var(--muted); text-align: right; }
+#update { flex-basis: 100%; text-align: right; color: var(--accent); font-weight: 600; }
+#update[hidden] { display: none; }
 #status.warn { color: var(--warn); font-weight: 600; }
 
 button, select, input, textarea { font: inherit; color: inherit; }

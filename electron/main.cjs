@@ -6,7 +6,8 @@ const fs = require("node:fs/promises");
 const { pathToFileURL } = require("node:url");
 
 // The screen is served from inside the program under app://, which lets it load its
-// scripts and fonts like an ordinary web page without touching the network.
+// scripts and fonts like an ordinary web page without touching the network. The one thing
+// that does use the network is the check for a newer version, further down.
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 let win = null;
@@ -34,7 +35,59 @@ function menu() {
                                 { role: "paste" }, { role: "pasteAndMatchStyle" }, { role: "selectAll" }, { type: "separator" },
                                 { label: "Enlarge text to fill the sheets (experimental)", click: () => send("fit") }] },
     { label: "&View", submenu: [{ role: "zoomIn" }, { role: "zoomOut" }, { role: "resetZoom" }, { type: "separator" }, { role: "togglefullscreen" }] },
+    { label: "&Help", submenu: [
+      { label: "Check for a newer version…", click: () => checkForUpdate(true) },
+      { type: "separator" },
+      { label: "About Grammateus", click: () => dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "About Grammateus",
+          message: `Grammateus ${app.getVersion()}`, detail: "Makes a folded Sunday bulletin as a PDF ready for the printer." }) },
+    ] },
   ]);
+}
+
+// ---------------------------------------------------------------- newer versions
+//
+// When the program starts it asks the public downloads page whether a newer version exists.
+// If one does, it is fetched while the person works and installed when they close the
+// program. Nothing is ever installed in the middle of work, and if the check fails (no
+// internet, for example) the program simply carries on.
+
+let updater = null;
+let updateNote = "";                       // what the screen shows about an update, if anything
+let asked = false;                         // the person chose "Check for a newer version"
+
+function tellUpdate(text) {
+  updateNote = text;
+  if (win) win.webContents.send("update", text);
+}
+
+function setUpUpdates() {
+  if (!app.isPackaged) return;             // only the installed program updates itself
+  try { updater = require("electron-updater").autoUpdater; } catch { return; }
+  updater.autoDownload = true;
+  updater.autoInstallOnAppQuit = true;
+  const answer = (message, detail) => { if (asked && win) dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "Grammateus", message, detail }); asked = false; };
+  updater.on("update-available", (info) => {
+    tellUpdate(`Version ${info.version} is being downloaded…`);
+    answer(`Version ${info.version} is available.`, "It is being downloaded now and will be installed when you close Grammateus.");
+  });
+  updater.on("download-progress", (p) => tellUpdate(`Downloading the new version: ${Math.round(p.percent)}%`));
+  updater.on("update-downloaded", (info) => tellUpdate(`Version ${info.version} is ready. It will be installed when you close Grammateus.`));
+  updater.on("update-not-available", () => answer(`You have the newest version (${app.getVersion()}).`));
+  updater.on("error", (error) => {
+    if (updateNote.startsWith("Downloading") || updateNote.includes("being downloaded")) tellUpdate("The new version could not be downloaded. Grammateus will try again next time it starts.");
+    answer("Grammateus could not check for a newer version.", `Check that this computer is connected to the internet, then try again.\n\n(${error?.message?.split("\n")[0] || "unknown error"})`);
+  });
+  checkForUpdate(false);
+}
+
+function checkForUpdate(byHand) {
+  if (!updater) {
+    if (byHand) dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "Grammateus", message: "Only the installed program can check for a newer version." });
+    return;
+  }
+  if (byHand && updateNote.includes("is ready")) { dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "Grammateus", message: updateNote }); return; }
+  asked = byHand;
+  updater.checkForUpdates().catch(() => {});       // failures arrive through the "error" event above
 }
 
 function createWindow() {
@@ -44,6 +97,7 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true },
   });
   win.loadURL("app://local/src/app/index.html");
+  win.webContents.on("did-finish-load", () => { if (updateNote) win.webContents.send("update", updateNote); });
   win.on("close", async (event) => {
     if (closing) return;
     event.preventDefault();
@@ -73,6 +127,7 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler((_contents, permission) => permission === "local-fonts");
   Menu.setApplicationMenu(menu());
   createWindow();
+  setUpUpdates();
 });
 
 app.on("window-all-closed", () => app.quit());
