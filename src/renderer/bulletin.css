@@ -1,0 +1,87 @@
+/* Page geometry follows the church's existing bulletin: letter-size pages, a 5.5 in
+   main column and a 2.5 in grey side column on the spine side of every service page. */
+
+@font-face { font-family: "EB Garamond"; src: url("fonts/EBGaramond.ttf"); font-weight: 400 800; font-style: normal; }
+@font-face { font-family: "EB Garamond"; src: url("fonts/EBGaramond-Italic.ttf"); font-weight: 400 800; font-style: italic; }
+
+@page { size: 8.5in 11in; margin: 0; }
+
+:root {
+  --page-w: 8.5in;
+  --page-h: 11in;
+  --edge: 0.25in;          /* outer margin, left and right */
+  --top: 0.5in;
+  --bottom: 0.6in;
+  --side-w: 2.5in;
+  --grey: #d9d9d9;
+  --dark: #7f7f7f;
+  --serif: "Garamond", "EB Garamond", "Times New Roman", serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #666; }
+body { font-family: var(--serif); font-size: 15pt; line-height: 16.9pt; color: #000;
+       font-variant-numeric: lining-nums; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+.page { position: relative; width: var(--page-w); height: var(--page-h); background: #fff; overflow: hidden;
+        margin: 0.2in auto; break-after: page; }
+@media print { html, body { background: #fff; } .page { margin: 0; } }
+
+/* ---- service pages ---- */
+.page .side { position: absolute; top: var(--top); bottom: var(--bottom); width: var(--side-w); background: var(--grey); }
+.page .main { position: absolute; top: var(--top); bottom: var(--bottom);
+              width: calc(var(--page-w) - 2 * var(--edge) - var(--side-w)); padding: 0 0.07in 0 0.04in; overflow: hidden; }
+.page.odd .side { left: var(--edge); }
+.page.odd .main { left: calc(var(--edge) + var(--side-w)); }
+.page.even .main { left: var(--edge); padding: 0 0.07in 0 0.04in; }
+.page.even .side { right: var(--edge); }
+.page .folio { position: absolute; top: 10.5in; left: 0; right: 0; text-align: center; font-size: 12pt; line-height: 1; }
+
+/* Paragraphs are set 6pt apart; a heading sits directly on the text it introduces. */
+.main > * { margin: 6pt 0 0; }
+.main > :first-child, .main .heading + .text, .main .heading + .hymn { margin-top: 0; }
+.main .section { text-align: center; font-weight: 700; font-variant: small-caps; font-size: 24pt; line-height: 27pt; }
+.main .section .plus { font-size: 20pt; }
+.main .heading { font-weight: 700; font-variant: small-caps; display: flex; justify-content: space-between; gap: 0.2in; }
+.main .heading .ref { font-weight: 400; font-variant: normal; white-space: nowrap; }
+.main .heading .title { font-weight: 400; font-variant: normal; font-style: italic; flex: 1; text-align: center; }
+.main .text { orphans: 2; widows: 2; }
+.main .hymn { display: flex; justify-content: space-between; align-items: baseline; gap: 0.2in; }
+.main .hymn .title { font-style: italic; flex: 1; text-align: center; }
+.main .hymn .number { white-space: nowrap; }
+.main figure { margin: 4pt 0 0; text-align: center; line-height: 0; }
+.main figure .crop { display: inline-block; overflow: hidden; max-width: 100%; }
+.main figure img { width: 100%; display: block; }
+.main .continues { position: absolute; bottom: 0; right: 0.1in; margin: 0; font-style: italic; font-size: 12.5pt; line-height: 1; }
+.page.even .main .continues { right: auto; left: 0.14in; }
+.sc { font-variant: small-caps; }
+sup { font-size: 0.62em; line-height: 0; vertical-align: super; }
+
+/* ---- side notes ---- */
+.side .note { position: absolute; left: 0.04in; right: 0.04in; font-style: italic; font-size: 12pt; line-height: 14.7pt; }
+.side .note img { display: block; max-width: 70%; margin: 0.06in auto 0; }
+.side .note u { font-style: italic; }
+
+/* ---- cover ---- */
+.page.cover { background: var(--dark); color: #fff; text-align: center; }
+.cover .top { position: absolute; top: 0.3in; left: 0.5in; right: 0.5in; font-weight: 700; }
+.cover .top .title { font-size: 44pt; font-variant: small-caps; line-height: 1.05; }
+.cover .top .sunday { font-size: 24pt; font-variant: small-caps; margin-top: 0.08in; }
+.cover .top .date { font-size: 24pt; }
+.cover .art { position: absolute; top: 2.45in; height: 5.9in; left: 0; right: 0; background: #fff;
+              display: flex; align-items: center; justify-content: center; }
+.cover .art img { max-width: 78%; max-height: 92%; }
+.cover .foot { position: absolute; bottom: 0.45in; left: 0.5in; right: 0.5in; font-weight: 700; font-size: 24pt; line-height: 1.15; }
+
+/* ---- welcome and back pages ---- */
+.page.plain .body { position: absolute; top: var(--top); bottom: var(--bottom); left: 0.5in; right: 0.5in; overflow: hidden; }
+.page.plain p { margin: 0 0 0.03in; }
+.page.welcome .body { font-size: 13pt; line-height: 1.13; }
+.page.welcome .logo { float: left; width: 1.15in; margin: 0 0.12in 0.04in 0; }
+.page.plain .center { text-align: center; }
+.page.back .body { font-size: 14pt; line-height: 1.15; text-align: center; }
+.page.back .logos { display: flex; align-items: center; justify-content: center; gap: 0.3in; margin: 0.12in 0; flex-wrap: wrap; }
+.page.back .logos img { max-height: 1.2in; max-width: 3.3in; }
+
+/* measuring column: same width as the main column, off screen */
+#measure { position: absolute; left: -100in; top: 0; visibility: hidden; }
