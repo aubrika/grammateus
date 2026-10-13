@@ -1,4 +1,6 @@
-# grammateus
+<p align="center"><img src="build/icon.png" width="96" alt="The Grammateus icon: a gold cross in a ring on purple"></p>
+
+<h1 align="center">grammateus</h1>
 
 > ὁ δὲ εἶπεν αὐτοῖς· Διὰ τοῦτο πᾶς γραμματεὺς μαθητευθεὶς τῇ βασιλείᾳ τῶν οὐρανῶν ὅμοιός ἐστιν ἀνθρώπῳ οἰκοδεσπότῃ ὅστις ἐκβάλλει ἐκ τοῦ θησαυροῦ αὐτοῦ καινὰ καὶ παλαιά.
 >
