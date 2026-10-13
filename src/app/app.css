@@ -63,7 +63,17 @@ main.no-outline #outline { display: none; }
 #form .item { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 8px 0; }
 #form .item .itemtools { display: flex; gap: 6px; margin-top: 6px; }
 #form .fontrow { display: flex; gap: 6px; align-items: center; }
-#form .fontrow input { flex: 1; }
+#form .fontbox { flex: 1; position: relative; display: flex; }
+#form .fontbox input { flex: 1; padding-right: 34px; }
+#form .fontbox .arrow { position: absolute; right: 1px; top: 1px; bottom: 1px; width: 30px; padding: 0; border: 0; border-left: 1px solid var(--line); border-radius: 0 5px 5px 0;
+                        background: var(--panel); display: grid; place-items: center; }
+#form .fontbox .arrow::before { content: ""; border: 5px solid transparent; border-top: 6px solid var(--ink); border-bottom: 0; }
+#form .fontbox .menu { position: absolute; left: 0; right: 0; top: 100%; margin-top: 2px; z-index: 5; max-height: 280px; overflow-y: auto; background: #fff;
+                       border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); }
+#form .fontbox .menu[hidden] { display: none; }
+#form .fontbox .menu button { display: block; width: 100%; text-align: left; border: 0; border-radius: 0; padding: 5px 10px; font-size: 15px; }
+#form .fontbox .menu button:hover { background: #ece6ea; }
+#form .fontbox .menu button.on { background: #f3e1ea; }
 #form .pair { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; margin: 4px 0; }
 #form img.thumb { max-width: 100%; max-height: 220px; border: 1px solid var(--line); display: block; margin: 6px 0; background: #fff; }
 #form .logos { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

@@ -71,6 +71,7 @@ function pickImage() {
 const COMMON_FONTS = ["EB Garamond", "Garamond", "Georgia", "Times New Roman", "Cambria", "Palatino Linotype", "Book Antiqua",
                       "Constantia", "Calibri", "Candara", "Segoe UI", "Verdana", "Arial", "Gill Sans MT", "Century Gothic"];
 let fontsLoaded = false;
+let fontNames = COMMON_FONTS;
 async function loadFonts() {
   if (fontsLoaded) return;
   fontsLoaded = true;
@@ -78,15 +79,37 @@ async function loadFonts() {
   try {
     if (window.queryLocalFonts) names = [...new Set(["EB Garamond", ...(await window.queryLocalFonts()).map((f) => f.family)])].sort((a, b) => a.localeCompare(b));
   } catch { /* not allowed here: keep the common list */ }
-  $("fonts").replaceChildren(...names.map((f) => h("option", { value: f })));
+  fontNames = names;
 }
 
 // A box for choosing a font. Empty means "the same as the rest".
 function fontField(label, get, set, placeholder, extra) {
-  const input = h("input", { type: "text", value: get() || "", list: "fonts", placeholder });
-  input.addEventListener("focus", loadFonts);
-  input.addEventListener("input", () => { set(input.value.trim()); changed(false); });
-  return [h("label", {}, label), h("div", { class: "fontrow" }, input, extra)];
+  // The arrow opens a list of every font on the computer; typing narrows the list.
+  const input = h("input", { type: "text", value: get() || "", placeholder, autocomplete: "off" });
+  const arrow = h("button", { type: "button", class: "arrow", title: "Show all fonts", "aria-label": "Show all fonts" });
+  const menu = h("div", { class: "menu", hidden: "" });
+  const use = (name) => { input.value = name; set(name); changed(false); };
+  const close = () => { menu.hidden = true; };
+  const open = async (filter) => {
+    await loadFonts();
+    const wanted = (filter || "").toLowerCase();
+    const names = fontNames.filter((f) => f.toLowerCase().includes(wanted));
+    const option = (text, name, style) => {
+      const o = h("button", { type: "button", class: name === input.value.trim() ? "on" : "", style }, text);
+      o.addEventListener("mousedown", (e) => { e.preventDefault(); use(name); close(); });
+      return o;
+    };
+    menu.replaceChildren(...(filter ? [] : [option(`Same as the rest (${placeholder})`, "", "")]),
+      ...names.map((f) => option(f, f, `font-family: "${f.replace(/["\\]/g, "")}", var(--ui)`)));
+    menu.hidden = !menu.children.length;
+    menu.querySelector(".on")?.scrollIntoView({ block: "nearest" });
+  };
+  arrow.addEventListener("mousedown", (e) => e.preventDefault());       // keep the typing place in the box
+  arrow.addEventListener("click", () => { if (menu.hidden) { input.focus(); open(""); } else close(); });
+  input.addEventListener("input", () => { set(input.value.trim()); changed(false); open(input.value.trim()); });
+  input.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); else if (e.key === "ArrowDown" && menu.hidden) open(""); });
+  input.addEventListener("blur", close);
+  return [h("label", {}, label), h("div", { class: "fontrow" }, h("div", { class: "fontbox" }, input, arrow, menu), extra)];
 }
 
 const imageUrl = (ref) => (ref && ref.startsWith("img:") ? doc.images[ref.slice(4)] : ref) || "";

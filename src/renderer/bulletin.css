@@ -51,9 +51,10 @@
 .roster-title { text-align: center; font-weight: 700; padding: 3pt 0; }
 .roster-row { display: flex; align-items: baseline; gap: 2pt; padding: 3pt 0; }
 .roster-row > span { min-width: 0; }
-.roster-row .right { text-align: right; flex: 0 1 auto; max-width: 70%; }
-/* a row of full stops on the baseline, cut off where the name begins */
-.roster-row .dots { flex: 1 1 0.3in; overflow: hidden; white-space: nowrap; overflow-wrap: normal; min-width: 0.3in; }
+.roster-row .right { text-align: right; flex: 0 1 auto; max-width: 85%; }
+/* a row of full stops on the baseline. It is laid from the right, so the last dot always
+   sits against the name, and it is cut off on the left where the role ends. */
+.roster-row .dots { direction: rtl; flex: 1 1 0.3in; overflow: hidden; white-space: nowrap; overflow-wrap: normal; min-width: 0.3in; }
 /* columns share the width equally, but none is made narrower than its longest word */
 .columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(min-content, 1fr); gap: 0.25in; align-items: start; }
 .columns > div { min-width: 0; overflow-wrap: break-word; }

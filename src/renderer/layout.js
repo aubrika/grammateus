@@ -38,7 +38,7 @@ function blockElement(block, src) {
       for (const row of block.rows || []) {
         const line = el("div", "roster-row");
         const dots = el("span", "dots");
-        dots.textContent = " " + ". ".repeat(200);           // clipped to the space between the two sides
+        dots.textContent = ". ".repeat(200);                 // clipped to the space between the two sides
         line.append(el("span", "", row.left || ""), dots, el("span", "right", row.right || ""));
         box.append(line);
       }

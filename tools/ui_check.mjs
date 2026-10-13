@@ -115,7 +115,7 @@ try {
   await sleep(1500);
   const fontsOf = `[...document.querySelectorAll('#shown .heading')].filter(h => h.style.fontFamily.includes('Georgia')).length`;
   const one = await ev(fontsOf);
-  await ev(`document.querySelector('#form .fontrow button').click()`); await sleep(1500);
+  await ev(`document.querySelector('#form .fontrow > button').click()`); await sleep(1500);
   console.log("headings in Georgia: after setting one item:", one, "→ after 'use for all headings':", await ev(fontsOf), "of", await ev(`document.querySelectorAll('#shown .heading').length`),
     "| status:", await ev("document.getElementById('status').textContent.slice(0, 40)"));
 
@@ -158,6 +158,15 @@ try {
 
   // saved file round-trips
   console.log("save and reopen gives the same pages:", await ev(`(async () => { const text = window.grammateus.serialise(); const n = window.grammateus.report().pages; window.grammateus.load(text, 'x.bulletin'); await new Promise(r => setTimeout(r, 2500)); return window.grammateus.report().pages === n && !window.grammateus.isDirty(); })()`));
+
+  // the font box: the arrow is always there and opens the whole list, whatever is typed in the box
+  await ev(`[...document.querySelectorAll('#outline .row.heading')][0].click()`); await sleep(400);
+  await ev(`document.querySelector('#form .fontbox input').scrollIntoView({ block: 'center' })`);
+  await ev(`document.querySelector('#form .fontbox .arrow').click()`); await sleep(500);
+  console.log("font list after pressing the arrow:", await ev(`(() => { const m = document.querySelector('#form .fontbox .menu'); return m.children.length + ' entries, scrolls: ' + (m.scrollHeight > m.clientHeight) + ', box holds: ' + JSON.stringify(document.querySelector('#form .fontbox input').value); })()`));
+  await shot("6-fonts.png");
+  await ev(`document.querySelector('#form .fontbox .menu button:nth-child(4)').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))`); await sleep(1200);
+  console.log("chosen from the list:", await ev(`document.querySelector('#form .fontbox input').value`), "| list closed:", await ev(`document.querySelector('#form .fontbox .menu').hidden`));
 
   // the progress panel, as it looks part of the way through an import
   await ev(`(() => { document.getElementById('busy').hidden = false; document.getElementById('busytext').textContent = 'Reading page 7 of 16…'; document.getElementById('busybar').value = 42; document.getElementById('busypct').textContent = '42% done'; })()`);
