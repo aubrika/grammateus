@@ -15,17 +15,15 @@
   --side-w: 2.5in;
   --grey: #d9d9d9;
   --dark: #7f7f7f;
-  --serif: "Garamond", "EB Garamond", "Times New Roman", serif;
+  --serif: "EB Garamond", serif;   /* the bundled font; a bulletin may name another */
+  --body-size: 15pt;
+  --note-size: 12pt;
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: #666; }
-body { font-family: var(--serif); font-size: 15pt; line-height: 16.9pt; color: #000;
-       font-variant-numeric: lining-nums; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
 .page { position: relative; width: var(--page-w); height: var(--page-h); background: #fff; overflow: hidden;
-        margin: 0.2in auto; break-after: page; }
-@media print { html, body { background: #fff; } .page { margin: 0; } }
+        break-after: page; font-family: var(--serif); font-size: var(--body-size); line-height: 1.127; color: #000;
+        font-variant-numeric: lining-nums; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
 /* ---- service pages ---- */
 .page .side { position: absolute; top: var(--top); bottom: var(--bottom); width: var(--side-w); background: var(--grey); }
@@ -35,13 +33,14 @@ body { font-family: var(--serif); font-size: 15pt; line-height: 16.9pt; color: #
 .page.odd .main { left: calc(var(--edge) + var(--side-w)); }
 .page.even .main { left: var(--edge); padding: 0 0.07in 0 0.04in; }
 .page.even .side { right: var(--edge); }
+.page.extra .main { left: 0.5in; width: 7.5in; padding: 0; }
 .page .folio { position: absolute; top: 10.5in; left: 0; right: 0; text-align: center; font-size: 12pt; line-height: 1; }
 
 /* Paragraphs are set 6pt apart; a heading sits directly on the text it introduces. */
 .main > * { margin: 6pt 0 0; }
 .main > :first-child, .main .heading + .text, .main .heading + .hymn { margin-top: 0; }
-.main .section { text-align: center; font-weight: 700; font-variant: small-caps; font-size: 24pt; line-height: 27pt; }
-.main .section .plus { font-size: 20pt; }
+.main .section { text-align: center; font-weight: 700; font-variant: small-caps; font-size: 1.6em; line-height: 1.125; }
+.main .section .plus { font-size: 0.83em; }
 .main .heading { font-weight: 700; font-variant: small-caps; display: flex; justify-content: space-between; gap: 0.2in; }
 .main .heading .ref { font-weight: 400; font-variant: normal; white-space: nowrap; }
 .main .heading .title { font-weight: 400; font-variant: normal; font-style: italic; flex: 1; text-align: center; }
@@ -52,13 +51,13 @@ body { font-family: var(--serif); font-size: 15pt; line-height: 16.9pt; color: #
 .main figure { margin: 4pt 0 0; text-align: center; line-height: 0; }
 .main figure .crop { display: inline-block; overflow: hidden; max-width: 100%; }
 .main figure img { width: 100%; display: block; }
-.main .continues { position: absolute; bottom: 0; right: 0.1in; margin: 0; font-style: italic; font-size: 12.5pt; line-height: 1; }
+.main .continues { position: absolute; bottom: 0; right: 0.1in; margin: 0; font-style: italic; font-size: var(--note-size); line-height: 1; }
 .page.even .main .continues { right: auto; left: 0.14in; }
 .sc { font-variant: small-caps; }
 sup { font-size: 0.62em; line-height: 0; vertical-align: super; }
 
 /* ---- side notes ---- */
-.side .note { position: absolute; left: 0.04in; right: 0.04in; font-style: italic; font-size: 12pt; line-height: 14.7pt; }
+.side .note { position: absolute; left: 0.04in; right: 0.04in; font-style: italic; font-size: var(--note-size); line-height: 1.225; }
 .side .note img { display: block; max-width: 70%; margin: 0.06in auto 0; }
 .side .note u { font-style: italic; }
 

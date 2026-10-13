@@ -2,3 +2,4 @@ node_modules/
 out/
 # Real bulletins contain licensed hymn music and people's names. They stay local.
 samples/
+dist/

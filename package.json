@@ -5,10 +5,46 @@
   "description": "Makes a folded, stapled Sunday bulletin as a print-ready PDF",
   "type": "module",
   "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never",
     "pdf": "node tools/make_pdf.mjs",
     "test": "node --test"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1"
+  },
+  "main": "electron/main.cjs",
+  "author": "Aubrey",
+  "build": {
+    "appId": "org.grammateus.app",
+    "productName": "Grammateus",
+    "files": [
+      "electron/**",
+      "src/**",
+      "examples/**",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createStartMenuShortcut": true,
+      "createDesktopShortcut": false,
+      "shortcutName": "Grammateus"
+    },
+    "fileAssociations": [
+      {
+        "ext": "bulletin",
+        "name": "Bulletin",
+        "description": "Grammateus bulletin",
+        "role": "Editor"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^41.7.1",
+    "electron-builder": "^26.15.3"
   }
 }

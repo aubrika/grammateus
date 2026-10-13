@@ -12,7 +12,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
-function blockElement(block, base) {
+function blockElement(block, src) {
   switch (block.type) {
     case "section":
       return el("div", "section", `<span class="plus">+</span> ${block.text} <span class="plus">+</span>`);
@@ -25,7 +25,7 @@ function blockElement(block, base) {
     case "hymn":
       return el("div", "hymn", `<span class="title">${block.title}</span><span class="number">${block.number || ""}</span>`);
     case "image":
-      return pictureElement(base + block.src, block.width, 0, 1);
+      return pictureElement(src(block.src), block.width, 0, 1);
     default:
       return el("p", "text", block.html);
   }
@@ -133,25 +133,31 @@ function splitAtLine(p, keep) {
   return null;
 }
 
-function servicePage(pages, number) {
-  const page = el("div", `page service ${number % 2 ? "odd" : "even"}`);
-  const side = el("div", "side");
+// A page that blocks flow into. Service pages have the side column for notes; the extra
+// pages after the service (announcements and the like) use the full width.
+function flowPage(pages, number, kind) {
+  const page = el("div", `page ${kind} ${number % 2 ? "odd" : "even"}`);
+  const side = kind === "service" ? el("div", "side") : null;
   const main = el("div", "main");
-  page.append(side, main, el("div", "folio", String(number - 1)));
+  if (side) page.append(side);
+  page.append(main, el("div", "folio", String(number - 1)));
   pages.append(page);
   return { page, side, main, placed: [] };
 }
 
 const fits = (main) => main.scrollHeight <= main.clientHeight + 0.5;
 
-async function layoutService(doc, pages, firstNumber, base) {
+async function flow(blocks, kind, pages, firstNumber, src) {
   let number = firstNumber;
-  let cur = servicePage(pages, number);
+  let cur = flowPage(pages, number, kind);
   const all = [cur];
-  const next = () => { cur = servicePage(pages, ++number); all.push(cur); };
+  const next = () => { cur = flowPage(pages, ++number, kind); all.push(cur); };
 
-  for (const block of doc.service) {
-    let node = blockElement(block, base);
+  for (const [index, block] of blocks.entries()) {
+    if (block.type === "pagebreak") { if (cur.placed.length) next(); continue; }
+    let node = blockElement(block, src);
+    node.dataset.part = kind;
+    node.dataset.index = index;
     if (block.type === "image") await node.querySelector("img").decode().catch(() => {});
     let first = true;
     for (;;) {
@@ -163,7 +169,7 @@ async function layoutService(doc, pages, firstNumber, base) {
         // show as much of the picture as fits, cutting only where it is blank right across
         const img = node.querySelector("img");
         const full = fitPicture(node);
-        const { src, width, from, to } = node.picture;
+        const { width, from, to } = node.picture;
         const inch = 96;
         const room = cur.main.getBoundingClientRect().bottom - node.getBoundingClientRect().top - 0.3 * inch;
         const cut = cutPoints(img).filter((c) => c > from && c < to && (c - from) * full <= room
@@ -174,7 +180,9 @@ async function layoutService(doc, pages, firstNumber, base) {
           cur.placed.push({ node, block, first });
           cur.main.append(el("div", "continues", "continued on the following page…"));
           first = false;
-          node = pictureElement(src, width, cut, to);
+          node = pictureElement(node.picture.src, width, cut, to);
+          node.dataset.part = kind;
+          node.dataset.index = index;
           await node.querySelector("img").decode().catch(() => {});
           next();
           continue;
@@ -194,6 +202,8 @@ async function layoutService(doc, pages, firstNumber, base) {
             cur.placed.push({ node, block, first });
             first = false;
             node = tail;
+            node.dataset.part = kind;
+            node.dataset.index = index;
             next();
             continue;
           }
@@ -229,16 +239,19 @@ async function layoutService(doc, pages, firstNumber, base) {
 
 // Side notes sit beside the block they belong to. If two would overlap, the later one moves
 // down; if that runs off the page, the notes above are pushed up to make room.
-function placeNotes(servicePages, base) {
+function placeNotes(servicePages, src) {
   const gap = 8;
   for (const sp of servicePages) {
+    if (!sp.side) continue;
     const top0 = sp.side.getBoundingClientRect().top;
     const height = sp.side.clientHeight;
     const notes = [];
     for (const { node, block, first } of sp.placed) {
       if (!block.note || !first) continue;
       const n = el("div", "note", block.note);
-      if (block.noteImage) { const img = el("img"); img.src = base + block.noteImage; n.append(img); }
+      if (block.noteImage) { const img = el("img"); img.src = src(block.noteImage); n.append(img); }
+      n.dataset.part = node.dataset.part;
+      n.dataset.index = node.dataset.index;
       sp.side.append(n);
       notes.push({ n, want: node.getBoundingClientRect().top - top0 + 3 });
     }
@@ -255,24 +268,26 @@ function placeNotes(servicePages, base) {
   }
 }
 
-function coverPage(doc, base) {
+function coverPage(doc, src) {
   const page = el("div", "page cover");
   const top = el("div", "top");
   top.append(el("div", "title", doc.meta.title), el("div", "sunday", doc.meta.sunday), el("div", "date", doc.meta.date));
   const art = el("div", "art");
-  if (doc.cover.image) { const img = el("img"); img.src = base + doc.cover.image; art.append(img); }
-  page.append(top, art, el("div", "foot", doc.cover.footer.join("<br>")));
+  if (doc.cover.image) { const img = el("img"); img.src = src(doc.cover.image); art.append(img); }
+  page.append(top, art, el("div", "foot", (doc.cover.footer || []).join("<br>")));
+  page.dataset.part = "cover";
   return page;
 }
 
-function plainPage(kind, items, base, number, logo) {
+function plainPage(kind, items, src, number, logo) {
   const page = el("div", `page plain ${kind}`);
+  page.dataset.part = kind;
   const body = el("div", "body");
-  if (logo) { const img = el("img", "logo"); img.src = base + logo; body.append(img); }
-  for (const item of items) {
+  if (logo) { const img = el("img", "logo"); img.src = src(logo); body.append(img); }
+  for (const item of items || []) {
     if (item.logos) {
       const row = el("div", "logos");
-      for (const src of item.logos) { const img = el("img"); img.src = base + src; row.append(img); }
+      for (const one of item.logos) { const img = el("img"); img.src = src(one); row.append(img); }
       body.append(row);
     } else {
       body.append(el("p", item.align === "center" ? "center" : "", item.html));
@@ -283,30 +298,48 @@ function plainPage(kind, items, base, number, logo) {
   return page;
 }
 
+// Pictures are either stored inside the bulletin ("img:<id>") or are files beside it.
+export function resolver(doc, base = "") {
+  return (ref) => (ref && ref.startsWith("img:") ? (doc.images || {})[ref.slice(4)] || "" : base + ref);
+}
+
 // Builds every page into `pages` and returns a short report.
+//
+// Page order: cover, welcome, the service, any extra pages, blank pages as needed, back
+// cover. A folded bulletin is made of whole sheets, four pages each, so the total is always
+// a multiple of four; `extraSheets` adds whole sheets beyond the fewest that fit.
 export async function layoutBulletin(doc, pages, base = "") {
+  const src = resolver(doc, base);
+  const style = doc.style || {};
+  pages.style.setProperty("--serif", `"${style.font || "EB Garamond"}", "EB Garamond", serif`);
+  pages.style.setProperty("--body-size", `${style.bodySize || 15}pt`);
+  pages.style.setProperty("--note-size", `${style.noteSize || 12}pt`);
   pages.replaceChildren();
   await document.fonts.ready;
-  pages.append(coverPage(doc, base));
-  pages.append(plainPage("welcome", doc.welcome, base, 2, doc.welcomeLogo));
-  const servicePages = await layoutService(doc, pages, 3, base);
+  pages.append(coverPage(doc, src));
+  pages.append(plainPage("welcome", doc.welcome, src, 2, doc.welcomeLogo));
+  const servicePages = await flow(doc.service || [], "service", pages, 3, src);
+  const extras = (doc.extras || []).filter((b) => b.type !== "pagebreak").length
+    ? await flow(doc.extras, "extra", pages, 3 + servicePages.length, src) : [];
   await Promise.all([...pages.querySelectorAll("img")].map((i) => i.decode().catch(() => {})));
-  placeNotes(servicePages, base);
+  placeNotes(servicePages, src);
 
-  // A folded booklet needs a multiple of four pages, with the back cover last.
-  let count = 2 + servicePages.length + 1;
+  let count = 2 + servicePages.length + extras.length + 1;
+  const needed = Math.ceil(count / 4) + Math.max(0, doc.extraSheets || 0);
   let blanks = 0;
-  while (count % 4) { pages.append(el("div", "page blank")); count++; blanks++; }
-  pages.append(plainPage("back", doc.back, base, 0));
+  while (count < needed * 4) { const b = el("div", "page blank"); b.dataset.part = "blank"; pages.append(b); count++; blanks++; }
+  pages.append(plainPage("back", doc.back, src, 0));
 
-  const lastMain = servicePages.at(-1).main;
-  const used = [...lastMain.children].reduce((b, c) => Math.max(b, c.getBoundingClientRect().bottom), lastMain.getBoundingClientRect().top);
+  const lastFlow = (extras.length ? extras : servicePages).at(-1).main;
+  const top = lastFlow.getBoundingClientRect().top;
+  const used = [...lastFlow.children].reduce((b, c) => Math.max(b, c.getBoundingClientRect().bottom), top);
   return {
     pages: count,
     sheets: count / 4,
     servicePages: servicePages.length,
+    extraPages: extras.length,
     blankPages: blanks,
-    lastPageFilled: Math.round(100 * (used - lastMain.getBoundingClientRect().top) / lastMain.clientHeight),
+    lastPageFilled: Math.round(100 * (used - top) / lastFlow.clientHeight),
     crowdedSides: servicePages.map((s, i) => (s.overfullSide ? i + 3 : 0)).filter(Boolean),
   };
 }

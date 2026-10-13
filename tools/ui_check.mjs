@@ -1,0 +1,104 @@
+// Drives the editing screen in a headless Chromium, the way a person would, and saves
+// screenshots and a PDF. Development aid, not part of the program.
+//
+//   node tools/ui_check.mjs out/2026-10-11.bulletin out/ui
+
+import { spawn } from "node:child_process";
+import { createServer } from "node:http";
+import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
+import { resolve, extname, dirname, join, basename } from "node:path";
+import { homedir } from "node:os";
+
+const [docPath, outDir = "out/ui"] = process.argv.slice(2);
+const root = resolve(dirname(new URL(import.meta.url).pathname), "..");
+const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
+                ".bulletin": "application/json", ".png": "image/png", ".ttf": "font/ttf" };
+const server = createServer(async (req, res) => {
+  const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
+  const file = path.startsWith("/doc/") ? resolve(dirname(docPath), path.slice(5)) : join(root, path);
+  let body;
+  try { body = await readFile(file); } catch { res.writeHead(404); res.end(); return; }
+  res.writeHead(200, { "content-type": TYPES[extname(file)] || "application/octet-stream" });
+  res.end(body);
+});
+await new Promise((r) => server.listen(0, "127.0.0.1", r));
+const port = server.address().port;
+const debugPort = 9400 + Math.floor(Math.random() * 400);
+const profile = join(homedir(), "snap/chromium/common", `grammateus-ui-${process.pid}`);
+await mkdir(profile, { recursive: true });
+await mkdir(outDir, { recursive: true });
+const chrome = spawn("chromium", ["--headless=new", `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`,
+  "--no-first-run", "--window-size=1500,950", "about:blank"], { stdio: "ignore" });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let ws;
+try {
+  let target;
+  for (let i = 0; i < 80 && !target; i++) {
+    try { target = (await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json()).find((t) => t.type === "page"); } catch { await sleep(150); }
+  }
+  ws = new WebSocket(target.webSocketDebuggerUrl);
+  await new Promise((r) => (ws.onopen = r));
+  let id = 0; const pending = new Map(); const errors = [];
+  ws.onmessage = (m) => {
+    const d = JSON.parse(m.data);
+    if (pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); }
+    else if (d.method === "Runtime.exceptionThrown") errors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
+    else if (d.method === "Runtime.consoleAPICalled" && d.params.type === "error") errors.push(d.params.args.map((a) => a.value || a.description).join(" "));
+  };
+  const send = (method, params = {}) => new Promise((r) => { pending.set(++id, r); ws.send(JSON.stringify({ id, method, params })); });
+  const ev = async (expression) => (await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })).result?.result?.value;
+  const shot = async (name) => writeFile(join(outDir, name), Buffer.from((await send("Page.captureScreenshot", { format: "png" })).result.data, "base64"));
+  const settle = async () => { for (let i = 0; i < 100; i++) { await sleep(200); if (await ev("!!window.grammateus && !!window.grammateus.report() && document.querySelectorAll('#shown .page').length > 0")) break; } await sleep(700); };
+
+  await send("Runtime.enable");
+  await send("Emulation.setDeviceMetricsOverride", { width: 1500, height: 950, deviceScaleFactor: 1, mobile: false });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/src/app/index.html?doc=/doc/${encodeURIComponent(basename(docPath))}` });
+  await settle();
+  console.log("opened:", JSON.stringify(await ev("window.grammateus.report()")), "| status:", await ev("document.getElementById('status').textContent"));
+  await shot("1-opened.png");
+
+  // click a heading in the outline, then type into its field as a person would
+  await ev(`[...document.querySelectorAll('#outline .row.heading')].find(b => b.textContent.includes('Prayer of the Day')).click()`);
+  await sleep(400);
+  await ev(`(() => { const i = document.querySelector('#form input[type=text]'); i.focus(); i.value = 'Prayer of the Day (edited)'; i.dispatchEvent(new Event('input', {bubbles:true})); })()`);
+  await sleep(1500);
+  console.log("after edit, preview shows it:", await ev(`[...document.querySelectorAll('#shown .heading')].some(h => h.textContent.includes('(edited)'))`),
+    "| outline shows it:", await ev(`[...document.querySelectorAll('#outline .row')].some(h => h.textContent.includes('(edited)'))`),
+    "| status:", await ev("document.getElementById('status').textContent"));
+  await shot("2-heading-edited.png");
+
+  // click a paragraph in the preview: the form should switch to it
+  await ev(`document.querySelector('#shown p.text').click()`);
+  await sleep(500);
+  console.log("clicked preview text, form title:", await ev("document.querySelector('#form h1').textContent"));
+  await shot("3-text-selected.png");
+
+  // add a whole sheet, then take it away again
+  const before = await ev("window.grammateus.report().pages");
+  await ev("document.getElementById('more').click()"); await sleep(1800);
+  const more = await ev("window.grammateus.report().pages");
+  await ev("document.getElementById('fewer').click()"); await sleep(1800);
+  console.log("pages:", before, "→ with an extra sheet:", more, "→ removed again:", await ev("window.grammateus.report().pages"));
+
+  // an extra page after the service
+  await ev(`[...document.querySelectorAll('#outline .row')].find(b => b.textContent.includes('Add an extra page')).click()`); await sleep(300);
+  await ev(`[...document.querySelectorAll('#form .add button')].find(b => b.textContent === 'Heading').click()`); await sleep(300);
+  await ev(`(() => { const i = document.querySelector('#form input[type=text]'); i.value = 'Community Announcements'; i.dispatchEvent(new Event('input', {bubbles:true})); })()`);
+  await ev(`[...document.querySelectorAll('#form .add button')].find(b => b.textContent === 'Text').click()`); await sleep(300);
+  await ev(`(() => { const b = document.querySelector('#form .rich .box'); b.focus(); document.execCommand('insertText', false, 'Coffee hour follows the service. All are welcome.'); })()`);
+  await sleep(1800);
+  console.log("with an extra page:", JSON.stringify(await ev("window.grammateus.report()")));
+  await shot("4-extra-page.png");
+
+  // paste from Word: formatting we keep survives, the rest is dropped
+  console.log("paste cleaning:", await ev(`(async () => { const { cleanHtml } = await import('/src/app/doc.js'); return cleanHtml('<p class="MsoNormal" style="margin:0"><span style="font-family:Calibri;color:red">The Lord be with you.</span></p><p class="MsoNormal"><b><span style="font-size:14pt">And also with you.</span></b></p><script>alert(1)</script>'); })()`));
+
+  // saved file round-trips
+  console.log("save and reopen gives the same pages:", await ev(`(async () => { const text = window.grammateus.serialise(); const n = window.grammateus.report().pages; window.grammateus.load(text, 'x.bulletin'); await new Promise(r => setTimeout(r, 2500)); return window.grammateus.report().pages === n && !window.grammateus.isDirty(); })()`));
+
+  const pdf = await send("Page.printToPDF", { printBackground: true, preferCSSPageSize: true, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0 });
+  await writeFile(join(outDir, "from-editor.pdf"), Buffer.from(pdf.result.data, "base64"));
+  console.log("errors on the page:", errors.length ? errors : "none");
+} finally {
+  ws?.close(); chrome.kill(); server.close(); await sleep(300); await rm(profile, { recursive: true, force: true });
+}

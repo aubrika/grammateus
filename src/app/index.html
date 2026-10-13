@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Grammateus</title>
+<link rel="stylesheet" href="../renderer/bulletin.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="ui">
+  <header id="bar">
+    <span class="brand">Grammateus</span>
+    <button id="new" title="Start an empty bulletin">New</button>
+    <button id="open" title="Open a bulletin file">Open…</button>
+    <button id="save" title="Save this bulletin">Save</button>
+    <button id="saveas" title="Save a copy under a new name, for example for next Sunday">Save as…</button>
+    <button id="pdf" class="primary" title="Make the PDF to send to the printer">Make PDF…</button>
+    <span class="sep"></span>
+    <span class="sheets" title="A folded bulletin is made of whole sheets of paper, four pages each.">
+      Extra sheets: <button id="fewer">−</button><b id="extra">0</b><button id="more">+</button>
+    </span>
+    <span id="status" role="status"></span>
+  </header>
+  <main>
+    <nav id="outline" aria-label="Parts of the bulletin"></nav>
+    <section id="form" aria-label="Edit the selected part"></section>
+    <section id="preview" aria-label="Preview of the pages"><div id="shown"></div></section>
+  </main>
+</div>
+<!-- Pages at their true size. Laid out here, shown smaller in the preview, and printed from here. -->
+<div id="pages"></div>
+<input type="file" id="pickfile" accept=".bulletin,.json" hidden>
+<input type="file" id="pickimage" accept="image/*" hidden>
+<script type="module" src="app.js"></script>
+</body>
+</html>
