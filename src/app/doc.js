@@ -8,6 +8,9 @@ export const BLOCK_NAMES = {
   text: "Text",
   hymn: "Hymn title",
   image: "Picture or music",
+  roster: "List with dotted lines",
+  columns: "Columns",
+  rule: "Line across the page",
   pagebreak: "Start a new page",
 };
 
@@ -18,7 +21,7 @@ export function emptyBulletin() {
 // Fill in anything missing so the rest of the program can rely on the shape.
 export function normalize(doc) {
   doc.format = FORMAT;
-  doc.style = { font: "EB Garamond", bodySize: 15, noteSize: 12, ...(doc.style || {}) };
+  doc.style = { font: "EB Garamond", bodySize: 15, noteSize: 12, extraSize: 14.5, ...(doc.style || {}) };
   doc.meta = { title: "", sunday: "", date: "", ...(doc.meta || {}) };
   doc.cover = { image: "", footer: [], ...(doc.cover || {}) };
   doc.welcomeLogo = doc.welcomeLogo || "";
@@ -38,6 +41,9 @@ export function newBlock(type) {
     case "hymn": return { type, title: "Hymn title", number: "" };
     case "image": return { type, src: "" };
     case "pagebreak": return { type };
+    case "rule": return { type };
+    case "roster": return { type, title: "Serving today", rows: [{ left: "Role", right: "Name" }] };
+    case "columns": return { type, columns: ["", ""] };
     default: return { type: "text", html: "" };
   }
 }
@@ -51,6 +57,9 @@ export function summary(block) {
     case "hymn": return `${block.title} ${block.number || ""}`.trim();
     case "image": return "Picture";
     case "pagebreak": return "— new page —";
+    case "rule": return "— line —";
+    case "roster": return block.title || "List";
+    case "columns": return plain((block.columns || []).join(" ")).slice(0, 60) || "(empty columns)";
     default: return plain(block.html).slice(0, 60) || "(empty text)";
   }
 }
@@ -77,7 +86,7 @@ export function pruneImages(doc) {
   const note = (ref) => { if (ref && ref.startsWith("img:")) used.add(ref.slice(4)); };
   note(doc.cover.image);
   note(doc.welcomeLogo);
-  for (const b of [...doc.service, ...doc.extras]) { note(b.src); note(b.noteImage); }
+  for (const b of [...doc.service, ...doc.extras]) { note(b.src); note(b.noteImage); note(b.float); note(b.picture); }
   for (const item of [...doc.welcome, ...doc.back]) (item.logos || []).forEach(note);
   for (const id of Object.keys(doc.images)) if (!used.has(id)) delete doc.images[id];
   return doc;

@@ -24,10 +24,45 @@ function blockElement(block, src) {
     }
     case "hymn":
       return el("div", "hymn", `<span class="title">${block.title}</span><span class="number">${block.number || ""}</span>`);
-    case "image":
-      return pictureElement(src(block.src), block.width, 0, 1);
-    default:
-      return el("p", "text", block.html);
+    case "image": {
+      const f = pictureElement(src(block.src), block.width, 0, 1);
+      if (block.align) f.style.textAlign = block.align;
+      return f;
+    }
+    case "rule":
+      return el("hr", "rule");
+    case "roster": {
+      // a boxed list of roles and names, joined by a row of dots
+      const box = el("div", "roster");
+      if (block.title) box.append(el("div", "roster-title", block.title));
+      for (const row of block.rows || []) {
+        const line = el("div", "roster-row");
+        line.append(el("span", "", row.left || ""), el("span", "dots"), el("span", "", row.right || ""));
+        box.append(line);
+      }
+      return box;
+    }
+    case "columns": {
+      const row = el("div", "columns");
+      for (const html of block.columns || []) row.append(el("div", "", html));
+      if (block.picture && row.lastChild) {           // a small picture under the last column
+        const img = el("img", "under");
+        img.src = src(block.picture);
+        row.lastChild.append(img);
+      }
+      return row;
+    }
+    default: {
+      // a blank line inside a block is a paragraph gap, set closer than a full line
+      const p = el("p", "text", (block.html || "").replace(/<br>\s*<br>/g, '<span class="gap"></span>'));
+      if (block.float) {                     // a picture set into the right of the paragraph
+        const img = el("img", "float");
+        img.src = src(block.float);
+        if (block.floatWidth) img.style.width = block.floatWidth;
+        p.prepend(img);
+      }
+      return p;
+    }
   }
 }
 
@@ -158,7 +193,8 @@ async function flow(blocks, kind, pages, firstNumber, src) {
     let node = blockElement(block, src);
     node.dataset.part = kind;
     node.dataset.index = index;
-    if (block.type === "image") await node.querySelector("img").decode().catch(() => {});
+    const pictures = block.type === "image" || block.float || block.picture ? [...node.querySelectorAll("img")] : [];
+    await Promise.all(pictures.map((i) => i.decode().catch(() => {})));
     let first = true;
     for (;;) {
       cur.main.append(node);
@@ -189,7 +225,7 @@ async function flow(blocks, kind, pages, firstNumber, src) {
         }
       }
 
-      if (block.type === "text") {
+      if (block.type === "text" && !block.float) {
         // keep as many whole lines as fit, but never strand a single line on either side
         const tops = lineTops(node);
         const limit = cur.main.getBoundingClientRect().bottom;
@@ -289,6 +325,10 @@ function plainPage(kind, items, src, number, logo) {
       const row = el("div", "logos");
       for (const one of item.logos) { const img = el("img"); img.src = src(one); row.append(img); }
       body.append(row);
+    } else if (item.columns) {
+      const row = el("div", "columns");
+      for (const html of item.columns) row.append(el("div", "", html));
+      body.append(row);
     } else {
       body.append(el("p", item.align === "center" ? "center" : "", item.html));
     }
@@ -314,6 +354,7 @@ export async function layoutBulletin(doc, pages, base = "") {
   pages.style.setProperty("--serif", `"${style.font || "EB Garamond"}", "EB Garamond", serif`);
   pages.style.setProperty("--body-size", `${style.bodySize || 15}pt`);
   pages.style.setProperty("--note-size", `${style.noteSize || 12}pt`);
+  pages.style.setProperty("--extra-size", `${style.extraSize || 14.5}pt`);
   pages.replaceChildren();
   await document.fonts.ready;
   pages.append(coverPage(doc, src));

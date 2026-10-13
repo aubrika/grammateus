@@ -52,6 +52,7 @@ main { flex: 1; display: grid; grid-template-columns: 270px minmax(340px, 1fr) m
 #form .add span { color: var(--muted); }
 #form .item { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 8px 0; }
 #form .item .itemtools { display: flex; gap: 6px; margin-top: 6px; }
+#form .pair { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; margin: 4px 0; }
 #form img.thumb { max-width: 100%; max-height: 220px; border: 1px solid var(--line); display: block; margin: 6px 0; background: #fff; }
 #form .logos { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 #form .logos img { max-height: 60px; border: 1px solid var(--line); }

@@ -31,7 +31,78 @@ function changed(redrawOutline = true) {
   dirty = true;
   if (redrawOutline) drawOutline();
   schedulePreview();
+  scheduleSnapshot();
   showStatus();
+}
+
+// ---------------------------------------------------------------- undo and redo
+//
+// Every change is remembered as a copy of the bulletin's words and structure. Pictures are
+// left out of the copies (they are large and never edited), so undoing never loses one.
+
+const past = [];
+let future = [];
+let lastSnapshot = "";
+let snapshotTimer = 0;
+const snapshot = () => JSON.stringify({ ...doc, images: undefined });
+
+function resetHistory() {
+  past.length = 0;
+  future = [];
+  lastSnapshot = snapshot();
+  showHistory();
+}
+
+function commitSnapshot() {
+  clearTimeout(snapshotTimer);
+  const now = snapshot();
+  if (now === lastSnapshot) return;
+  past.push(lastSnapshot);
+  if (past.length > 200) past.shift();
+  future = [];
+  lastSnapshot = now;
+  showHistory();
+}
+
+function scheduleSnapshot() {
+  clearTimeout(snapshotTimer);
+  snapshotTimer = setTimeout(commitSnapshot, 500);       // typing is remembered in short bursts
+}
+
+function restore(text) {
+  const images = doc.images;
+  doc = normalize(JSON.parse(text));
+  doc.images = images;
+  lastSnapshot = text;
+  dirty = true;
+  const list = doc[selected.part];
+  if (Array.isArray(list) && (selected.part === "service" || selected.part === "extras")) {
+    selected.index = Math.min(selected.index, list.length - 1);
+  }
+  drawOutline();
+  drawForm();
+  schedulePreview();
+  showStatus();
+  showHistory();
+}
+
+function undo() {
+  commitSnapshot();
+  if (!past.length) return;
+  future.push(lastSnapshot);
+  restore(past.pop());
+}
+
+function redo() {
+  commitSnapshot();
+  if (!future.length) return;
+  past.push(lastSnapshot);
+  restore(future.pop());
+}
+
+function showHistory() {
+  $("undo").disabled = !past.length;
+  $("redo").disabled = !future.length;
 }
 
 function textField(label, value, set, placeholder = "") {
@@ -175,7 +246,8 @@ function designForm(form) {
       "Any other font must be installed on the computer that makes the PDF."),
     h("label", {}, "Font"), font, list,
     ...size("Size of the main text (points)", "bodySize", 9, 20),
-    ...size("Size of the side notes (points)", "noteSize", 7, 16));
+    ...size("Size of the side notes (points)", "noteSize", 7, 16),
+    ...size("Size of the text on extra pages (points)", "extraSize", 8, 18));
 }
 
 function paragraphsForm(form, title, hint, key, hasLogo) {
@@ -187,7 +259,9 @@ function paragraphsForm(form, title, hint, key, hasLogo) {
       h("button", { class: "small", onclick: () => { move(list, i, -1); changed(); drawForm(); }, disabled: i === 0 }, "↑"),
       h("button", { class: "small", onclick: () => { move(list, i, 1); changed(); drawForm(); }, disabled: i === list.length - 1 }, "↓"),
       h("button", { class: "small danger", onclick: () => { list.splice(i, 1); changed(); drawForm(); } }, "Remove"));
-    if (item.logos) {
+    if (item.columns) {
+      form.append(h("div", { class: "item" }, ...columnsEditor(item, drawForm), tools));
+    } else if (item.logos) {
       const row = h("div", { class: "logos" }, ...item.logos.map((ref) => h("img", { src: imageUrl(ref), alt: "" })));
       tools.prepend(h("button", { class: "small", onclick: async () => { const d = await pickImage(); if (d) { item.logos.push(addImage(doc, d)); changed(); drawForm(); } } }, "Add a logo…"));
       form.append(h("div", { class: "item" }, h("label", {}, "Row of logos"), row, tools));
@@ -201,11 +275,26 @@ function paragraphsForm(form, title, hint, key, hasLogo) {
   });
   form.append(h("div", { class: "add" }, h("span", {}, "Add:"),
     h("button", { onclick: () => { list.push({ html: "", align: "left" }); changed(); drawForm(); } }, "Paragraph"),
+    h("button", { onclick: () => { list.push({ columns: ["", ""] }); changed(); drawForm(); } }, "Columns"),
     h("button", { onclick: () => { list.push({ logos: [] }); changed(); drawForm(); } }, "Row of logos")));
 }
 
+// Two to four boxes of formatted text side by side.
+function columnsEditor(owner, redraw) {
+  const count = h("select", {}, ...[2, 3, 4].map((n) => h("option", { value: n, selected: owner.columns.length === n }, `${n} columns`)));
+  count.addEventListener("change", () => {
+    const n = Number(count.value);
+    while (owner.columns.length < n) owner.columns.push("");
+    if (owner.columns.length > n) owner.columns = [...owner.columns.slice(0, n - 1), owner.columns.slice(n - 1).filter(Boolean).join("<br>")];
+    changed(); redraw();
+  });
+  return [h("label", {}, "Columns"), count,
+    ...owner.columns.map((html, i) => h("div", { class: "item" }, rich(html, (v) => (owner.columns[i] = v))))];
+}
+
 function addBar(part, at) {
-  const types = part === "extras" ? ["heading", "text", "image", "pagebreak"] : ["section", "heading", "text", "hymn", "image"];
+  const types = part === "extras" ? ["heading", "text", "roster", "columns", "image", "rule", "pagebreak"]
+                                  : ["section", "heading", "text", "hymn", "image"];
   return h("div", { class: "add" }, h("span", {}, at < 0 ? "Add:" : "Add after this:"),
     ...types.map((t) => h("button", { onclick: () => { doc[part].splice(at + 1, 0, newBlock(t)); changed(); select(part, at + 1); } }, BLOCK_NAMES[t])));
 }
@@ -247,13 +336,36 @@ function blockForm(form, part, index) {
     const split = h("input", { type: "checkbox" });
     split.checked = block.split !== false;
     split.addEventListener("change", () => { block.split = split.checked ? undefined : false; changed(false); });
+    const align = h("select", {}, ...[["", "Centre"], ["left", "Left"], ["right", "Right"]].map(([v, t]) => h("option", { value: v, selected: (block.align || "") === v }, t)));
+    align.addEventListener("change", () => { block.align = align.value || undefined; changed(false); });
+    form.append(h("label", {}, "Position"), align);
     form.append(h("label", {}, "Width (percent of the column)"), width,
       h("label", { class: "check" }, split, "May continue on the next page (for music; it only breaks between lines of music)"));
   } else if (block.type === "pagebreak") {
     form.append(h("p", { class: "hint" }, "What follows starts at the top of a new page."));
+  } else if (block.type === "rule") {
+    form.append(h("p", { class: "hint" }, "A line across the page, for separating announcements."));
+  } else if (block.type === "roster") {
+    form.append(...textField("Title (optional)", block.title, (v) => (block.title = v), "Serving in the Liturgy"),
+      h("label", {}, "Rows: what is on the left, and what is on the right"));
+    block.rows.forEach((row, i) => {
+      const left = h("input", { type: "text", value: row.left || "", placeholder: "Role" });
+      const right = h("input", { type: "text", value: row.right || "", placeholder: "Name" });
+      left.addEventListener("input", () => { row.left = left.value; changed(false); });
+      right.addEventListener("input", () => { row.right = right.value; changed(false); });
+      form.append(h("div", { class: "pair" }, left, right,
+        h("button", { class: "small danger", title: "Remove this row", onclick: () => { block.rows.splice(i, 1); changed(); drawForm(); } }, "✕")));
+    });
+    form.append(h("div", { class: "tools" }, h("button", { onclick: () => { block.rows.push({ left: "", right: "" }); changed(); drawForm(); } }, "Add a row")));
+  } else if (block.type === "columns") {
+    form.append(...columnsEditor(block, drawForm));
+    pictureField(form, "Small picture under the last column (optional)", () => block.picture, (v) => { if (v) block.picture = v; else delete block.picture; });
   } else {
     form.append(h("label", {}, "Text"), rich(block.html, (v) => (block.html = v)),
       h("p", { class: "hint" }, "Bold is for words everyone says together. Italic is for instructions. Press Shift+Enter for a new line."));
+    if (part === "extras") {
+      pictureField(form, "Picture set into the right of this text (optional)", () => block.float, (v) => { if (v) block.float = v; else delete block.float; });
+    }
   }
 
   if (part === "service" && block.type !== "pagebreak") {
@@ -336,6 +448,7 @@ function load(text, name) {
   fileName = name || "";
   dirty = false;
   report = null;
+  resetHistory();
   select("cover");
   updatePreview();
 }
@@ -407,7 +520,7 @@ async function startNew() {
   try {
     load(await (await fetch(new URL("../../examples/example.bulletin", import.meta.url))).text(), "");
   } catch {
-    doc = emptyBulletin(); fileName = ""; dirty = false; report = null; select("cover"); updatePreview();
+    doc = emptyBulletin(); fileName = ""; dirty = false; report = null; resetHistory(); select("cover"); updatePreview();
   }
 }
 $("new").addEventListener("click", async () => { if (await confirmDiscard()) startNew(); });
@@ -415,17 +528,23 @@ $("open").addEventListener("click", openFile);
 $("save").addEventListener("click", () => saveFile(false));
 $("saveas").addEventListener("click", () => saveFile(true));
 $("pdf").addEventListener("click", makePdf);
+$("undo").addEventListener("click", undo);
+$("redo").addEventListener("click", redo);
 $("more").addEventListener("click", () => { doc.extraSheets++; changed(false); });
 $("fewer").addEventListener("click", () => { if (doc.extraSheets > 0) { doc.extraSheets--; changed(false); } });
 window.addEventListener("beforeunload", (e) => { if (dirty && !desk) { e.preventDefault(); e.returnValue = ""; } });
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveFile(e.shiftKey); }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") { e.preventDefault(); openFile(); }
+  // Inside a text box the browser's own undo handles typing; anywhere else, undo the last change.
+  const typing = e.target.closest && e.target.closest("input, textarea, [contenteditable]");
+  if ((e.ctrlKey || e.metaKey) && !typing && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  if ((e.ctrlKey || e.metaKey) && !typing && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); }
 });
 if (desk) desk.onMenu((what) => ({ new: () => $("new").click(), open: openFile, save: () => saveFile(false), saveas: () => saveFile(true), pdf: makePdf }[what]?.()));
 
 // For tests and for the desktop program's "is it safe to close" question.
-window.grammateus = { load, serialise, isDirty: () => dirty, report: () => report, select };
+window.grammateus = { load, serialise, isDirty: () => dirty, report: () => report, select, undo, redo };
 
 // Start with the file the program was opened with, or the one named in the address (used in
 // development and tests), or else a new bulletin.

@@ -29,6 +29,8 @@ doc.welcomeLogo = await embed(doc.welcomeLogo);
 for (const b of [...(doc.service || []), ...(doc.extras || [])]) {
   if (b.src) b.src = await embed(b.src);
   if (b.noteImage) b.noteImage = await embed(b.noteImage);
+  if (b.float) b.float = await embed(b.float);
+  if (b.picture) b.picture = await embed(b.picture);
 }
 for (const item of [...(doc.welcome || []), ...(doc.back || [])]) {
   if (item.logos) item.logos = await Promise.all(item.logos.map(embed));

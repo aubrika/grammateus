@@ -200,10 +200,14 @@ def paragraphs(lines, col_left, col_right, gap=30):
 
 def stitch(strips, src_dir, out_path):
     """Some PDF makers cut each picture into horizontal strips; put them back together."""
-    ims = [Image.open(src_dir / s["src"]).convert("L") for s in strips]
+    ims = [Image.open(src_dir / s["src"]) for s in strips]
+    # music is black and white and stays small that way; logos and photographs keep their colour
+    mode = "L" if all(im.mode in ("1", "L", "P") and len(set(im.convert("RGB").resize((24, 24)).getdata()) - {(v, v, v) for v in range(256)}) == 0
+                      for im in ims) else "RGB"
+    ims = [im.convert(mode) for im in ims]
     width = max(im.width for im in ims)
     ims = [im if im.width == width else im.resize((width, round(im.height * width / im.width))) for im in ims]
-    sheet = Image.new("L", (width, sum(im.height for im in ims)), 255)
+    sheet = Image.new(mode, (width, sum(im.height for im in ims)), 255 if mode == "L" else (255, 255, 255))
     y = 0
     for im in ims:
         sheet.paste(im, (0, y))
