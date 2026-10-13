@@ -67,6 +67,16 @@ try {
     "| status:", await ev("document.getElementById('status').textContent"));
   await shot("2-heading-edited.png");
 
+  // undo takes the edit away and redo brings it back
+  const edited = `[...document.querySelectorAll('#outline .row')].some(h => h.textContent.includes('(edited)'))`;
+  await sleep(700);
+  await ev("document.getElementById('undo').click()"); await sleep(600);
+  const afterUndo = await ev(edited);
+  await ev("document.getElementById('redo').click()"); await sleep(600);
+  console.log("undo removes the edit:", afterUndo === false, "| redo restores it:", await ev(edited),
+    "| pictures still there after undo:", await ev("Object.keys(JSON.parse(window.grammateus.serialise()).images).length > 0"));
+  await sleep(1200);
+
   // click a paragraph in the preview: the form should switch to it
   await ev(`document.querySelector('#shown p.text').click()`);
   await sleep(500);
