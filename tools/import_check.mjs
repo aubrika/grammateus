@@ -66,7 +66,7 @@ try {
   await sleep(2500);
   console.log("after reading:", await ev("document.getElementById('status').textContent"));
   if (await ev("/made by Grammateus/.test(document.getElementById('status').textContent)")) {
-    console.log("opened from the copy stored in the PDF:", await ev(`(() => { const d = JSON.parse(window.grammateus.serialise()); return JSON.stringify({ title: d.meta.title, service: d.service.length, extras: d.extras.length, images: Object.keys(d.images).length, report: window.grammateus.report() }); })()`));
+    console.log("opened from the copy stored in the PDF:", await ev(`(() => { const d = JSON.parse(window.grammateus.serialise()); return JSON.stringify({ title: d.meta.title, parts: d.parts.map(p => p.name + ': ' + p.blocks.length), images: Object.keys(d.images).length, report: window.grammateus.report() }); })()`));
     console.log("errors on the page:", errors.length ? errors.slice(0, 5) : "none");
     process.exitCode = 0;
     throw Object.assign(new Error("done"), { done: true });
@@ -80,8 +80,7 @@ try {
   await sleep(3500);
   console.log("after import:", await ev("document.getElementById('status').textContent"));
   const summary = await ev(`(() => { const d = JSON.parse(window.grammateus.serialise()); const kinds = (list) => list.reduce((k, b) => (k[b.type] = (k[b.type] || 0) + 1, k), {});
-    return JSON.stringify({ meta: d.meta, footer: d.cover.footer, welcome: d.welcome.length, service: kinds(d.service), notes: d.service.filter(b => b.note).length,
-      noteImages: d.service.filter(b => b.noteImage).length, extras: kinds(d.extras), back: d.back.map(i => i.columns ? 'columns' : i.logos ? 'logos' : 'text'),
+    return JSON.stringify({ meta: d.meta, footer: d.cover.footer, parts: d.parts.map(p => ({ name: p.name, side: p.side, size: p.size, last: !!p.last, kinds: kinds(p.blocks), notes: p.blocks.filter(b => b.note).length })),
       images: Object.keys(d.images).length, style: d.style, megabytes: +(window.grammateus.serialise().length / 1e6).toFixed(2), report: window.grammateus.report() }); })()`);
   console.log(summary);
   await writeFile(join(outDir, "imported.bulletin"), await ev("window.grammateus.serialise()"));

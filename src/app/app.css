@@ -32,6 +32,10 @@ main { flex: 1; display: grid; grid-template-columns: 270px minmax(340px, 1fr) m
 #outline .row { display: block; width: 100%; text-align: left; border: 0; border-radius: 0; background: none; padding: 4px 12px 4px 22px;
                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #outline .row.part { padding-left: 12px; font-weight: 600; }
+#outline .row.part.title { margin-top: 10px; text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em; color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
+#outline .row.part.title.on { color: var(--ink); }
+#outline .row.part.add { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; color: var(--accent); font-weight: 400; }
+#outline .row.roster, #outline .row.columns, #outline .row.logos, #outline .row.rule, #outline .row.pagebreak { padding-left: 34px; color: var(--muted); }
 #outline .row.section { padding-left: 12px; font-weight: 700; font-variant: small-caps; }
 #outline .row.heading { font-weight: 600; }
 #outline .row.text, #outline .row.image, #outline .row.hymn { padding-left: 34px; color: var(--muted); }
@@ -56,6 +60,7 @@ main { flex: 1; display: grid; grid-template-columns: 270px minmax(340px, 1fr) m
 #form img.thumb { max-width: 100%; max-height: 220px; border: 1px solid var(--line); display: block; margin: 6px 0; background: #fff; }
 #form .logos { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 #form .logos img { max-height: 60px; border: 1px solid var(--line); }
+#form .logos .logo { display: inline-flex; align-items: flex-start; gap: 2px; }
 
 .rich { border: 1px solid var(--line); border-radius: 6px; }
 .rich .fmt { display: flex; gap: 4px; padding: 4px; border-bottom: 1px solid var(--line); background: var(--panel); border-radius: 6px 6px 0 0; }

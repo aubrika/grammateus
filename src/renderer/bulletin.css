@@ -16,31 +16,36 @@
   --grey: #d9d9d9;
   --dark: #7f7f7f;
   --serif: "EB Garamond", serif;   /* the bundled font; a bulletin may name another */
-  --body-size: 15pt;
   --note-size: 12pt;
-  --extra-size: 14.5pt;
 }
 
 * { box-sizing: border-box; }
 .page { position: relative; width: var(--page-w); height: var(--page-h); background: #fff; overflow: hidden;
-        break-after: page; font-family: var(--serif); font-size: var(--body-size); line-height: 1.127; color: #000;
+        break-after: page; font-family: var(--serif); font-size: 15pt; line-height: 1.127; color: #000;
         font-variant-numeric: lining-nums; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
 /* ---- service pages ---- */
 .page .side { position: absolute; top: var(--top); bottom: var(--bottom); width: var(--side-w); background: var(--grey); }
 .page .main { position: absolute; top: var(--top); bottom: var(--bottom);
-              width: calc(var(--page-w) - 2 * var(--edge) - var(--side-w)); padding: 0 0.07in 0 0.04in; overflow: hidden; }
+              width: calc(var(--page-w) - 2 * var(--edge) - var(--side-w)); padding: 0 0.07in 0 0.04in; overflow: hidden;
+              font-size: var(--part-size, 15pt); }
 .page.odd .side { left: var(--edge); }
 .page.odd .main { left: calc(var(--edge) + var(--side-w)); }
 .page.even .main { left: var(--edge); padding: 0 0.07in 0 0.04in; }
 .page.even .side { right: var(--edge); }
-.page.extra .main { left: 0.5in; width: 7.5in; padding: 0; font-size: var(--extra-size); }
+.page.extra .main { left: 0.5in; width: 7.5in; padding: 0; }
 .page.extra .main .heading { justify-content: center; font-variant: normal; font-size: 1.1em; }
 .main .text .gap { display: block; height: 0.4em; }
 .main .rule { border: 0; border-top: 1.5pt solid #000; margin: 5pt 0 0; }
 .main .rule + * { margin-top: 3pt; }
 .main img.float { float: right; width: 34%; margin: 2pt 0 4pt 10pt; }
-.main .text:has(img.float)::after { content: ""; display: block; clear: both; }
+.main img.float.left { float: left; margin: 2pt 10pt 4pt 0; }
+.main .text.center { text-align: center; }
+.main .logos { display: flex; align-items: center; justify-content: center; gap: 0.3in; flex-wrap: wrap; }
+.main .logos img { max-height: 1.2in; max-width: 3.3in; }
+/* a picture on the right stays within its own paragraph; one on the left (a small emblem
+   beside a title) lets the paragraphs after it run alongside */
+.main .text:has(img.float:not(.left))::after { content: ""; display: block; clear: both; }
 .roster { border: 1pt solid #000; padding: 0 3pt; }
 .roster-title { text-align: center; font-weight: 700; padding: 3pt 0; }
 .roster-row { display: flex; align-items: baseline; gap: 3pt; border-top: 0.5pt solid #999; padding: 3pt 0; }
@@ -48,7 +53,7 @@
 .columns { display: flex; gap: 0.25in; align-items: flex-start; }
 .columns > div { flex: 1; min-width: 0; }
 .columns img.under { display: block; width: 55%; margin: 0.15in auto 0; }
-.page.plain .columns { text-align: left; margin: 0.08in 0; }
+
 .page .folio { position: absolute; top: 10.5in; left: 0; right: 0; text-align: center; font-size: 12pt; line-height: 1; }
 
 /* Paragraphs are set 6pt apart; a heading sits directly on the text it introduces. */
@@ -86,17 +91,6 @@ sup { font-size: 0.62em; line-height: 0; vertical-align: super; }
               display: flex; align-items: center; justify-content: center; }
 .cover .art img { max-width: 78%; max-height: 92%; }
 .cover .foot { position: absolute; bottom: 0.45in; left: 0.5in; right: 0.5in; font-weight: 700; font-size: 24pt; line-height: 1.15; }
-
-/* ---- welcome and back pages ---- */
-.page.plain .body { position: absolute; top: var(--top); bottom: var(--bottom); left: 0.5in; right: 0.5in; overflow: hidden; }
-.page.plain p { margin: 0 0 0.03in; }
-.page.welcome .body { font-size: 13pt; line-height: 1.13; }
-.page.welcome .logo { float: left; width: 1.15in; margin: 0 0.12in 0.04in 0; }
-.page.plain .center { text-align: center; }
-.page.back .body { font-size: 14pt; line-height: 1.15; text-align: center; }
-.page.back .body p.center i { font-size: 1.25em; }
-.page.back .logos { display: flex; align-items: center; justify-content: center; gap: 0.3in; margin: 0.12in 0; flex-wrap: wrap; }
-.page.back .logos img { max-height: 1.2in; max-width: 3.3in; }
 
 /* measuring column: same width as the main column, off screen */
 #measure { position: absolute; left: -100in; top: 0; visibility: hidden; }

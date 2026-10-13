@@ -39,6 +39,7 @@ function menu() {
 function createWindow() {
   win = new BrowserWindow({
     width: 1500, height: 950, minWidth: 1100, minHeight: 650, title: "Grammateus",
+    icon: path.join(__dirname, "..", "build", "icon.png"),
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true },
   });
   win.loadURL("app://local/src/app/index.html");

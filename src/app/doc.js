@@ -1,6 +1,11 @@
 // The bulletin as data, and the few operations on it that do not need a screen.
+//
+// A bulletin is a cover followed by parts. A part is a run of pages holding a list of
+// blocks (headings, text, pictures and so on). Every part can hold every kind of block, and
+// each part chooses whether its pages have the grey side column for notes. One part may be
+// marked as last: it is kept at the very end, after any blank pages, as the back cover.
 
-export const FORMAT = 1;
+export const FORMAT = 2;
 
 export const BLOCK_NAMES = {
   section: "Section title",
@@ -10,6 +15,7 @@ export const BLOCK_NAMES = {
   image: "Picture or music",
   roster: "List with dotted lines",
   columns: "Columns",
+  logos: "Row of pictures",
   rule: "Line across the page",
   pagebreak: "Start a new page",
 };
@@ -18,19 +24,51 @@ export function emptyBulletin() {
   return normalize({});
 }
 
+export function newPart(name = "New part") {
+  return { name, side: false, size: 14.5, blocks: [] };
+}
+
+// Bulletins saved by the first version kept the welcome page, service, extra pages and back
+// page as four separate lists. Turn those into parts.
+function upgrade(doc) {
+  const style = doc.style || {};
+  const toBlock = (item) => (item.columns ? { type: "columns", columns: item.columns }
+    : item.logos ? { type: "logos", images: item.logos }
+    : { type: "text", html: item.html || "", ...(item.align === "center" ? { align: "center" } : {}) });
+  const welcome = (doc.welcome || []).map(toBlock);
+  const first = welcome.find((b) => b.type === "text");
+  if (doc.welcomeLogo && first) Object.assign(first, { float: doc.welcomeLogo, floatSide: "left", floatWidth: "15%" });
+  doc.parts = [
+    { name: "Welcome page", side: false, size: 13, blocks: welcome },
+    { name: "The service", side: true, size: style.bodySize || 15, blocks: doc.service || [] },
+    { name: "Extra pages", side: false, size: style.extraSize || 14.5, blocks: doc.extras || [] },
+    { name: "Back page", side: false, size: 14, last: true, blocks: (doc.back || []).map(toBlock) },
+  ];
+  for (const key of ["welcome", "welcomeLogo", "service", "extras", "back"]) delete doc[key];
+  doc.style = { font: style.font, noteSize: style.noteSize };
+  return doc;
+}
+
 // Fill in anything missing so the rest of the program can rely on the shape.
 export function normalize(doc) {
+  if (!Array.isArray(doc.parts)) upgrade(doc);
   doc.format = FORMAT;
-  doc.style = { font: "EB Garamond", bodySize: 15, noteSize: 12, extraSize: 14.5, ...(doc.style || {}) };
+  doc.style = { font: doc.style?.font || "EB Garamond", noteSize: doc.style?.noteSize || 12 };
   doc.meta = { title: "", sunday: "", date: "", ...(doc.meta || {}) };
-  doc.cover = { image: "", footer: [], ...(doc.cover || {}) };
-  doc.welcomeLogo = doc.welcomeLogo || "";
-  doc.welcome = doc.welcome || [];
-  doc.service = doc.service || [];
-  doc.extras = doc.extras || [];
-  doc.back = doc.back || [];
+  doc.cover = { show: true, image: "", footer: [], ...(doc.cover || {}) };
+  doc.parts = doc.parts.map((p) => ({ name: p.name || "Part", side: !!p.side, size: p.size || 14.5, ...(p.last ? { last: true } : {}), blocks: p.blocks || [] }));
+  placeLast(doc);
   doc.extraSheets = Math.max(0, doc.extraSheets || 0);
   doc.images = doc.images || {};
+  return doc;
+}
+
+// At most one part is the last one, and it sits at the end of the list.
+export function placeLast(doc, keep) {
+  const marked = doc.parts.filter((p) => p.last);
+  const last = keep && keep.last ? keep : marked.at(-1);
+  for (const p of doc.parts) if (p !== last) delete p.last;
+  if (last) { doc.parts.splice(doc.parts.indexOf(last), 1); doc.parts.push(last); }
   return doc;
 }
 
@@ -44,13 +82,15 @@ export function newBlock(type) {
     case "rule": return { type };
     case "roster": return { type, title: "Serving today", rows: [{ left: "Role", right: "Name" }] };
     case "columns": return { type, columns: ["", ""] };
+    case "logos": return { type, images: [] };
     default: return { type: "text", html: "" };
   }
 }
 
 // One line describing a block, for the outline.
 export function summary(block) {
-  const plain = (h) => (h || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const plain = (h) => (h || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
   switch (block.type) {
     case "section": return block.text;
     case "heading": return (block.stand ? "*" : "") + block.text + (block.title ? ` — ${block.title}` : "");
@@ -59,6 +99,7 @@ export function summary(block) {
     case "pagebreak": return "— new page —";
     case "rule": return "— line —";
     case "roster": return block.title || "List";
+    case "logos": return "Row of pictures";
     case "columns": return plain((block.columns || []).join(" ")).slice(0, 60) || "(empty columns)";
     default: return plain(block.html).slice(0, 60) || "(empty text)";
   }
@@ -80,14 +121,17 @@ export function addImage(doc, dataUrl) {
   return `img:${id}`;
 }
 
+// Every picture reference a block holds.
+export function pictureRefs(block) {
+  return [block.src, block.noteImage, block.float, block.picture, ...(block.images || [])].filter(Boolean);
+}
+
 // Drop stored pictures that nothing refers to any more.
 export function pruneImages(doc) {
   const used = new Set();
   const note = (ref) => { if (ref && ref.startsWith("img:")) used.add(ref.slice(4)); };
   note(doc.cover.image);
-  note(doc.welcomeLogo);
-  for (const b of [...doc.service, ...doc.extras]) { note(b.src); note(b.noteImage); note(b.float); note(b.picture); }
-  for (const item of [...doc.welcome, ...doc.back]) (item.logos || []).forEach(note);
+  for (const part of doc.parts) for (const b of part.blocks) pictureRefs(b).forEach(note);
   for (const id of Object.keys(doc.images)) if (!used.has(id)) delete doc.images[id];
   return doc;
 }

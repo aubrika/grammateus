@@ -21,11 +21,11 @@ const root = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
                 ".png": "image/png", ".jpg": "image/jpeg", ".ttf": "font/ttf" };
 
-// Serve the renderer under /app/ and the bulletin's own folder under /doc/.
+// Serve the program's files as they are, and the bulletin's own folder under /doc/.
 const docDir = dirname(resolve(docPath));
 const server = createServer(async (req, res) => {
   const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
-  const file = path.startsWith("/doc/") ? join(docDir, path.slice(5)) : join(root, "src/renderer", path.replace(/^\/app\//, ""));
+  const file = path.startsWith("/doc/") ? join(docDir, path.slice(5)) : join(root, path);
   let body;
   try { body = await readFile(file); } catch { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { "content-type": TYPES[extname(file)] || "application/octet-stream" });
@@ -55,7 +55,7 @@ try {
   ws.onmessage = (m) => { const d = JSON.parse(m.data); if (pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); } };
   const send = (method, params = {}) => new Promise((r) => { pending.set(++id, r); ws.send(JSON.stringify({ id, method, params })); });
 
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/app/print.html?doc=/doc/${encodeURIComponent(basename(docPath))}` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/src/renderer/print.html?doc=/doc/${encodeURIComponent(basename(docPath))}` });
   let report;
   for (let i = 0; i < 200 && !report; i++) {
     await sleep(150);

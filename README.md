@@ -10,7 +10,12 @@ built automatically but has not yet been tried on a real Windows computer.
 - **An editing screen** with three parts: an outline of the bulletin, a form for the
   part you select, and a live preview of the pages. Click anything in the preview to
   edit it.
-- **Pages lay themselves out.** The service is a list of headings, text, hymn titles
+- **Parts.** A bulletin is a cover followed by parts: by default a welcome page, the
+  service, extra pages and a back page. Every part can hold every kind of item, each
+  part chooses whether its pages have the grey side column for notes, and parts can be
+  added, removed, renamed and reordered. The default arrangement is only a starting
+  point.
+- **Pages lay themselves out.** A part is a list of headings, text, hymn titles
   and pictures. Text breaks between lines, a heading is never left alone at the foot
   of a page, and music breaks only between lines of music, with "continued on the
   following page…" added.
@@ -79,7 +84,8 @@ contain licensed hymn music and people's names.
 | `src/renderer/bulletin.css` | Page sizes, fonts and spacing |
 | `src/impose.mjs` | Page order for folding, for printers that cannot do it themselves |
 | `electron/` | The desktop program: window, menus, opening and saving files |
-| `examples/example.bulletin` | The bulletin a new one starts from |
+| `examples/example.bulletin` | The bulletin a new one starts from (written by `tools/make_example.py`) |
+| `build/` | The program's icon (drawn by `tools/make_icon.py`) |
 | `tools/` | Importers for old bulletins and development scripts |
 
 The bundled font is EB Garamond, under the SIL Open Font License

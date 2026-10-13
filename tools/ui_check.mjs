@@ -90,15 +90,33 @@ try {
   await ev("document.getElementById('fewer').click()"); await sleep(1800);
   console.log("pages:", before, "→ with an extra sheet:", more, "→ removed again:", await ev("window.grammateus.report().pages"));
 
-  // an extra page after the service
-  await ev(`[...document.querySelectorAll('#outline .row')].find(b => b.textContent.includes('Add an extra page')).click()`); await sleep(300);
+  // every part takes every kind of item: add a heading and some text to the last-but-one part
+  const partRow = `[...document.querySelectorAll('#outline .row.part.title')].at(-2)`;
+  const partName = await ev(`${partRow}.childNodes[0].textContent`);
+  await ev(`${partRow}.click()`); await sleep(300);
   await ev(`[...document.querySelectorAll('#form .add button')].find(b => b.textContent === 'Heading').click()`); await sleep(300);
-  await ev(`(() => { const i = document.querySelector('#form input[type=text]'); i.value = 'Community Announcements'; i.dispatchEvent(new Event('input', {bubbles:true})); })()`);
+  await ev(`(() => { const i = document.querySelector('#form input[type=text]'); i.value = 'Added by the check'; i.dispatchEvent(new Event('input', {bubbles:true})); })()`);
   await ev(`[...document.querySelectorAll('#form .add button')].find(b => b.textContent === 'Text').click()`); await sleep(300);
   await ev(`(() => { const b = document.querySelector('#form .rich .box'); b.focus(); document.execCommand('insertText', false, 'Coffee hour follows the service. All are welcome.'); })()`);
   await sleep(1800);
-  console.log("with an extra page:", JSON.stringify(await ev("window.grammateus.report()")));
-  await shot("4-extra-page.png");
+  console.log(`added to "${partName}":`, await ev(`[...document.querySelectorAll('#shown .heading')].some(h => h.textContent.includes('Added by the check'))`));
+
+  // side notes can be switched on for a part that did not have them
+  await ev(`${partRow}.click()`); await sleep(300);
+  const sideBox = `[...document.querySelectorAll('#form label.check')].find(l => l.textContent.includes('side column')).querySelector('input')`;
+  const had = await ev(`${sideBox}.checked`);
+  await ev(`${sideBox}.click()`); await sleep(1800);
+  console.log("side column was", had ? "on" : "off", "→ pages of that part now have a side column:", await ev(`!!document.querySelector('#shown .page[data-part="' + (document.querySelectorAll('#outline .row.part.title').length - 2) + '"] .side')`));
+  await ev(`${sideBox}.click()`); await sleep(1500);
+
+  // a new part can be added and removed
+  const partsBefore = await ev(`document.querySelectorAll('#outline .row.part.title').length`);
+  await ev(`document.querySelector('#outline .row.part.add').click()`); await sleep(500);
+  const partsAfter = await ev(`document.querySelectorAll('#outline .row.part.title').length`);
+  await ev(`window.confirm = () => true; [...document.querySelectorAll('#form .tools button')].find(b => b.textContent === 'Remove this part').click()`); await sleep(500);
+  console.log("parts:", partsBefore, "→ after adding one:", partsAfter, "→ after removing it:", await ev(`document.querySelectorAll('#outline .row.part.title').length`),
+    "| back cover still last:", await ev(`JSON.parse(window.grammateus.serialise()).parts.at(-1).last === true`));
+  await shot("4-parts.png");
 
   // paste from Word: formatting we keep survives, the rest is dropped
   console.log("paste cleaning:", await ev(`(async () => { const { cleanHtml } = await import('/src/app/doc.js'); return cleanHtml('<p class="MsoNormal" style="margin:0"><span style="font-family:Calibri;color:red">The Lord be with you.</span></p><p class="MsoNormal"><b><span style="font-size:14pt">And also with you.</span></b></p><script>alert(1)</script>'); })()`));

@@ -10,10 +10,11 @@
 <div id="pages"></div>
 <script type="module">
   import { layoutBulletin } from "./layout.js";
+  import { normalize } from "../app/doc.js";
   // ?doc=<url of bulletin.json>; pictures are found next to that file.
   const url = new URLSearchParams(location.search).get("doc");
   try {
-    const doc = await (await fetch(url)).json();
+    const doc = normalize(await (await fetch(url)).json());
     const base = url.slice(0, url.lastIndexOf("/") + 1);
     window.__report = await layoutBulletin(doc, document.getElementById("pages"), base);
   } catch (e) {

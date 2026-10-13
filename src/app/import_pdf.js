@@ -493,7 +493,8 @@ export async function inspectPdf(data, progress = () => {}) {
 }
 
 export function buildBulletin({ pages, count }, first, last, progress = () => {}) {
-  const doc = normalize({});
+  // filled in as the four lists of the first file format, then turned into parts at the end
+  const doc = { style: {}, meta: {}, cover: {}, welcome: [], welcomeLogo: "", service: [], extras: [], back: [], images: {} };
   let n = 0;
   const addImage = (dataUrl) => { const id = `p${++n}`; doc.images[id] = dataUrl; return `img:${id}`; };
   const at = (number) => pages[number - 1];
@@ -540,5 +541,5 @@ export function buildBulletin({ pages, count }, first, last, progress = () => {}
   })) : 12;
   doc.style.noteSize = Math.round(noteSizes * 2) / 2 || 12;
   if (last + 1 < count) doc.style.extraSize = Math.round(bodySize(pages.slice(last, count - 1)) * 2) / 2 || 14.5;
-  return doc;
+  return normalize(doc);
 }
