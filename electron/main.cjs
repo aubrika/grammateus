@@ -31,7 +31,8 @@ function menu() {
       { role: "quit" },
     ] },
     { label: "&Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" },
-                                { role: "paste" }, { role: "pasteAndMatchStyle" }, { role: "selectAll" }] },
+                                { role: "paste" }, { role: "pasteAndMatchStyle" }, { role: "selectAll" }, { type: "separator" },
+                                { label: "Enlarge text to fill the sheets (experimental)", click: () => send("fit") }] },
     { label: "&View", submenu: [{ role: "zoomIn" }, { role: "zoomOut" }, { role: "resetZoom" }, { type: "separator" }, { role: "togglefullscreen" }] },
   ]);
 }

@@ -27,6 +27,9 @@ built automatically but has not yet been tried on a real Windows computer.
   pads to a multiple of four with blank pages before the back cover, and extra sheets
   (for announcements and the like) are added or removed with one button. The padding
   can be switched off for printers that add blank pages themselves.
+- **Enlarge text to fill the sheets (experimental).** Makes the text as large as it can
+  be while the bulletin still fits on the sheets it already needs.
+- **Slow work shows its progress:** a spinner, what is happening and a percentage.
 - **One file per bulletin.** A `.bulletin` file holds the words and the pictures, so
   next week starts by opening last week's and saving it under a new name.
 - **Any font.** A good open font comes with the program, so a bulletin looks the same

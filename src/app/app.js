@@ -127,6 +127,25 @@ function rich(html, set, { note = false } = {}) {
   return h("div", { class: note ? "rich note" : "rich" }, bar, box);
 }
 
+// ---------------------------------------------------------------- slow work
+//
+// Anything that takes more than a moment shows this panel: a spinner, what is happening, and
+// how far along it is. Each call waits for the screen to redraw, so the spinner keeps turning
+// and the numbers keep moving even while the program is working hard.
+
+function busy(message, fraction) {
+  $("busy").hidden = false;
+  $("busytext").textContent = message;
+  const bar = $("busybar");
+  if (fraction == null) { bar.removeAttribute("value"); $("busypct").textContent = ""; }
+  else { const pct = Math.max(0, Math.min(100, Math.round(fraction * 100))); bar.value = pct; $("busypct").textContent = `${pct}% done`; }
+  return new Promise((done) => requestAnimationFrame(() => setTimeout(done, 0)));
+}
+
+function idle() {
+  $("busy").hidden = true;
+}
+
 // ---------------------------------------------------------------- undo and redo
 //
 // Every change is remembered as a copy of the bulletin's words and structure. Pictures are
@@ -298,7 +317,10 @@ function designForm(form) {
     h("h2", {}, "Sheets of paper"),
     checkbox("Add blank pages so the bulletin fills whole sheets (four pages to a sheet)", doc.wholeSheets, (v) => (doc.wholeSheets = v)),
     h("p", { class: "hint" }, "A folded bulletin is printed on whole sheets, so its page count must be a multiple of four. With this on, any blank pages " +
-      "are placed just before the back cover, so the back cover is still the outside. Turn it off if your printer or copier adds the blanks itself."));
+      "are placed just before the back cover, so the back cover is still the outside. Turn it off if your printer or copier adds the blanks itself."),
+    h("div", { class: "tools" }, h("button", { onclick: fitToSheets }, "Enlarge text to fill the sheets (experimental)")),
+    h("p", { class: "hint" }, "Makes all the text as large as it can be while the bulletin still fits on the sheets it already needs. " +
+      "Pictures and music stay the same size. It takes a few seconds, and Undo puts the sizes back."));
 }
 
 const ADDABLE = ["section", "heading", "text", "hymn", "image", "roster", "columns", "logos", "rule", "pagebreak"];
@@ -454,6 +476,7 @@ function schedulePreview() {
 }
 
 async function updatePreview() {
+  if (fitting) return;                         // the pages are being measured at other sizes
   if (running) { again = true; return; }
   running = true;
   try {
@@ -570,11 +593,10 @@ async function importPdf() {
   input.onchange = async () => {
     const file = input.files[0];
     if (!file) return;
-    const say = (text) => { $("status").className = ""; $("status").textContent = text; };
     try {
-      say("Opening the PDF…");
+      await busy("Opening the PDF…", 0);
       const { inspectPdf } = await import("./import_pdf.js");
-      const found = await inspectPdf(new Uint8Array(await file.arrayBuffer()), say);
+      const found = await inspectPdf(new Uint8Array(await file.arrayBuffer()), busy);
       if (found.embedded) {
         load(JSON.stringify(found.embedded), "");
         dirty = true;
@@ -585,12 +607,15 @@ async function importPdf() {
       }
       pending = { name: file.name, ...found };
       problem = "";
-      say(`${file.name}: ${pending.count} pages read. Check the page numbers, then press Import.`);
+      $("status").className = "";
+      $("status").textContent = `${file.name}: ${pending.count} pages read. Check the page numbers, then press Import.`;
       importForm();
     } catch (e) {
       pending = null;
       problem = `The PDF could not be read: ${e.message}`;
       showStatus();
+    } finally {
+      idle();
     }
   };
   input.click();
@@ -605,14 +630,16 @@ function importForm() {
   go.addEventListener("click", async () => {
     const a = parseInt(first.value, 10), b = parseInt(last.value, 10);
     if (!(a >= 1 && b >= a && b <= pending.count)) { problem = "The service pages must be in order and within the PDF."; showStatus(); return; }
-    const say = (text) => { $("status").className = ""; $("status").textContent = text; };
     try {
       go.disabled = true;
+      await busy("Rebuilding the bulletin…", 0.6);
       const { buildBulletin } = await import("./import_pdf.js");
-      const made = buildBulletin(pending, a, b, say);
+      const made = await buildBulletin(pending, a, b, busy);
       const from = pending.name;
       pending = null;
       load(JSON.stringify(made), "");
+      await busy("Laying out the pages…", 1);
+      await updatePreview();
       dirty = true;                             // it exists only on screen until it is saved
       problem = "";
       notice = `Imported from ${from}. Look it over, then save it.`;
@@ -621,6 +648,8 @@ function importForm() {
       go.disabled = false;
       problem = `The PDF could not be imported: ${e.message}`;
       showStatus();
+    } finally {
+      idle();
     }
   });
   form.append(h("h1", {}, "Import a bulletin PDF"),
@@ -631,6 +660,64 @@ function importForm() {
     h("p", { class: "hint" }, "Pages between the service and the back cover become extra pages. " +
       "Importing works best on bulletins laid out like this program's own: a main column with a side column of notes."),
     h("div", { class: "tools" }, go, h("button", { onclick: () => { pending = null; drawForm(); showStatus(); } }, "Cancel")));
+}
+
+// ---------------------------------------------------------------- enlarging the text to fill the sheets
+//
+// Experimental. A bulletin is printed on whole sheets, so there is often room to spare on the
+// last one. This finds the largest text at which the bulletin still fits on the sheets it
+// already needs, by trying sizes and laying the pages out each time. Pictures are not changed.
+
+let fitting = false;
+
+async function fitToSheets() {
+  if (fitting) return;
+  fitting = true;
+  commitSnapshot();
+  const original = { parts: doc.parts.map((p) => p.size), note: doc.style.noteSize };
+  const quarter = (v) => Math.round(v * 4) / 4;
+  const apply = (k) => { doc.parts.forEach((p, i) => (p.size = quarter(original.parts[i] * k))); doc.style.noteSize = quarter(original.note * k); };
+  const measure = async () => {                 // pages of content, with no blank pages added
+    const kept = [doc.wholeSheets, doc.extraSheets];
+    doc.wholeSheets = false; doc.extraSheets = 0;
+    try { return (await layoutBulletin(doc, $("pages"))).pages; } finally { [doc.wholeSheets, doc.extraSheets] = kept; }
+  };
+  try {
+    await busy("Measuring the bulletin as it is…", 0);
+    const now = await measure();
+    const target = Math.ceil(now / 4) * 4;
+    let lo = 1, hi = 1.6;
+    const steps = 8;
+    for (let step = 0; step < steps; step++) {
+      const mid = (lo + hi) / 2;
+      await busy(`Trying the text ${Math.round((mid - 1) * 100)}% larger…`, (step + 1) / (steps + 2));
+      apply(mid);
+      if ((await measure()) <= target) lo = mid; else hi = mid;
+    }
+    await busy("Checking the result…", (steps + 1) / (steps + 2));
+    let k = lo;
+    apply(k);
+    while (k > 1 && (await measure()) > target) { k = Math.max(1, k - 0.01); apply(k); }     // sizes are rounded, so make sure
+    const grew = doc.parts.some((p, i) => p.size > original.parts[i]);
+    if (!grew) apply(1);
+    dirty = dirty || grew;
+    const main = doc.parts.findIndex((p) => p.side);
+    const shown = main >= 0 ? main : 0;
+    notice = grew
+      ? `Text enlarged to fill ${target / 4} ${target === 4 ? "sheet" : "sheets"}: ${original.parts[shown]} → ${doc.parts[shown].size} points in “${doc.parts[shown].name}”. Undo puts it back.`
+      : "The text already fills its sheets; nothing was changed.";
+    problem = "";
+    if (grew) scheduleSnapshot();
+    drawForm();
+  } catch (e) {
+    apply(1);
+    problem = `The text could not be enlarged: ${e.message}`;
+  } finally {
+    fitting = false;
+    idle();
+    await updatePreview();
+    showStatus();
+  }
 }
 
 function suggestedName() {
@@ -690,10 +777,10 @@ document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && !typing && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
   if ((e.ctrlKey || e.metaKey) && !typing && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); }
 });
-if (desk) desk.onMenu((what) => ({ new: () => $("new").click(), open: openFile, import: importPdf, save: () => saveFile(false), saveas: () => saveFile(true), pdf: makePdf }[what]?.()));
+if (desk) desk.onMenu((what) => ({ new: () => $("new").click(), open: openFile, import: importPdf, save: () => saveFile(false), saveas: () => saveFile(true), pdf: makePdf, fit: fitToSheets }[what]?.()));
 
 // For tests and for the desktop program's "is it safe to close" question.
-window.grammateus = { load, serialise, isDirty: () => dirty, report: () => report, select, undo, redo };
+window.grammateus = { load, serialise, isDirty: () => dirty, report: () => report, select, undo, redo, fitToSheets };
 
 // Start with the file the program was opened with, or the one named in the address (used in
 // development and tests), or else a new bulletin.

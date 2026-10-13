@@ -31,6 +31,17 @@
     <section id="form" aria-label="Edit the selected part"></section>
     <section id="preview" aria-label="Preview of the pages"><div id="shown"></div></section>
   </main>
+  <!-- shown over the screen while something slow is running, so it never looks frozen -->
+  <div id="busy" hidden role="alertdialog" aria-live="polite" aria-busy="true">
+    <div class="card">
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="what">
+        <div id="busytext">Working…</div>
+        <progress id="busybar" max="100"></progress>
+        <div id="busypct"></div>
+      </div>
+    </div>
+  </div>
 </div>
 <!-- Pages at their true size. Laid out here, shown smaller in the preview, and printed from here. -->
 <div id="pages"></div>

@@ -84,6 +84,18 @@ main.no-outline #outline { display: none; }
 #shown [data-index].on, #shown .page[data-part].on { outline: 5px solid rgba(31, 95, 168, 0.55); outline-offset: 2px; }
 #shown [data-index] { cursor: pointer; }
 
+#busy { position: fixed; inset: 0; background: rgba(29, 36, 51, 0.35); display: flex; align-items: center; justify-content: center; z-index: 10; }
+#busy[hidden] { display: none; }
+#busy .card { background: #fff; border-radius: 10px; padding: 20px 24px; min-width: 380px; max-width: 520px; display: flex; gap: 18px; align-items: center;
+              box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); }
+#busy .spinner { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 4px solid #d5d9e2; border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #busy .spinner { animation-duration: 4s; } }
+#busy .what { flex: 1; }
+#busytext { font-weight: 600; margin-bottom: 8px; }
+#busybar { width: 100%; height: 10px; }
+#busypct { color: var(--muted); font-size: 13px; margin-top: 4px; min-height: 1.2em; }
+
 /* True-size pages: off screen while editing, the only thing present when printing. */
 #pages { position: absolute; left: -200in; top: 0; }
 @media print {

@@ -315,9 +315,10 @@ function looksLikeService(page) {
   return inMain >= 3 && inNote >= 3 && across <= 2;
 }
 
-function servicePages(pages, body, addImage) {
+async function servicePages(pages, body, addImage, tick) {
   const blocks = [];
-  for (const page of pages) {
+  for (const [done, page] of pages.entries()) {
+    await tick(`Rebuilding the service: page ${page.number}…`, done / pages.length);
     const { mainL, mainR, noteL, noteR } = columnsOf(page);
     const inMain = (x) => x >= mainL - 4 && x < mainR;
     const continues = page.texts.some((t) => /continued on the following/i.test(t.text));
@@ -371,6 +372,7 @@ function servicePages(pages, body, addImage) {
     blocks.push(...pageBlocks);
   }
   for (const b of blocks) if (b.type === "image") { b.src = addImage(stitch(b._group)); delete b._group; }
+  await tick("Rebuilding the service…", 1);
   return blocks;
 }
 
@@ -501,7 +503,10 @@ const strip = (blocks) => blocks.map((b) => Object.fromEntries(Object.entries(b)
 // ---------------------------------------------------------------- the whole file
 
 // Opens the PDF and suggests which pages are the service.
-export async function inspectPdf(data, progress = () => {}) {
+//
+// `progress(message, fraction)` is called as the work goes on and is awaited, so the screen
+// can redraw between steps; the fraction runs from 0 to 1 over reading and building together.
+export async function inspectPdf(data, progress = async () => {}) {
   // ask for pictures as plain pixel data, which is what toCanvas reads most reliably
   // (photographs in JPEG 2000 need the decoder that ships beside the library)
   const pdf = await pdfjs.getDocument({ data, isOffscreenCanvasSupported: false, isImageDecoderSupported: false,
@@ -513,9 +518,10 @@ export async function inspectPdf(data, progress = () => {}) {
   }
   const pages = [];
   for (let n = 1; n <= pdf.numPages; n++) {
-    progress(`Reading page ${n} of ${pdf.numPages}…`);
+    await progress(`Reading page ${n} of ${pdf.numPages}…`, 0.6 * (n - 1) / pdf.numPages);
     pages.push(await readPage(pdf, n));
   }
+  await progress("Working out which pages are the service…", 0.6);
   const service = pages.filter(looksLikeService).map((p) => p.number);
   // a page of nothing but music has no side notes, so take the whole stretch from the first
   // page that looks like the service to the last
@@ -524,7 +530,7 @@ export async function inspectPdf(data, progress = () => {}) {
   return { pages, count: pdf.numPages, first, last };
 }
 
-export function buildBulletin({ pages, count }, first, last, progress = () => {}) {
+export async function buildBulletin({ pages, count }, first, last, progress = async () => {}) {
   // filled in as the four lists of the first file format, then turned into parts at the end
   const doc = { style: {}, meta: {}, cover: {}, welcome: [], welcomeLogo: "", service: [], extras: [], back: [], images: {} };
   let n = 0;
@@ -532,7 +538,7 @@ export function buildBulletin({ pages, count }, first, last, progress = () => {}
   const at = (number) => pages[number - 1];
   const body = bodySize(pages.slice(first - 1, last));
 
-  progress("Reading the cover…");
+  await progress("Rebuilding the cover…", 0.6);
   const cover = at(1);
   const coverLines = linesOf(cover.texts.filter((t) => t.text.trim() && t.text.trim() !== "#"), bodySize([cover]))
     .map((l) => ({ ...l, text: smallCapsText(l.parts, Math.max(...l.parts.map((p) => p.size)) * 1.01) }));
@@ -544,26 +550,26 @@ export function buildBulletin({ pages, count }, first, last, progress = () => {}
   doc.cover = { image: big ? addImage(stitch(big)) : "", footer: lower.map((l) => l.parts.map((p) => p.text).join("").replace(/\s+/g, " ").trim()) };
 
   if (first > 2) {
-    progress("Reading the welcome page…");
+    await progress("Rebuilding the welcome page…", 0.63);
     const welcome = at(2);
     const logo = pictureGroups(welcome.images)[0];
     doc.welcomeLogo = logo ? addImage(stitch(logo)) : "";
     doc.welcome = asItems(fullWidthPage({ ...welcome, images: [] }, addImage));
   }
 
-  progress("Reading the service…");
-  doc.service = strip(servicePages(pages.slice(first - 1, last), body, addImage));
+  doc.service = strip(await servicePages(pages.slice(first - 1, last), body, addImage,
+    (message, part) => progress(message, 0.65 + 0.25 * part)));
 
   const backNumber = count > last ? count : 0;
   for (let number = last + 1; number < count; number++) {
-    progress(`Reading page ${number}…`);
+    await progress(`Rebuilding page ${number}…`, 0.9 + 0.08 * (number - last) / Math.max(1, count - last));
     const blocks = fullWidthPage(at(number), addImage, { announcements: true });
     if (!blocks.length) continue;
     if (doc.extras.length) doc.extras.push({ type: "pagebreak" });
     doc.extras.push(...strip(blocks).map(({ align, ...b }) => (b.type === "image" && align ? { ...b, align } : b)));
   }
   if (backNumber) {
-    progress("Reading the back page…");
+    await progress("Rebuilding the back page…", 0.98);
     doc.back = asItems(fullWidthPage(at(backNumber), addImage));
   }
   doc.style.bodySize = Math.round(body * 2) / 2;
@@ -573,5 +579,6 @@ export function buildBulletin({ pages, count }, first, last, progress = () => {}
   })) : 12;
   doc.style.noteSize = Math.round(noteSizes * 2) / 2 || 12;
   if (last + 1 < count) doc.style.extraSize = Math.round(bodySize(pages.slice(last, count - 1)) * 2) / 2 || 14.5;
+  await progress("Laying out the pages…", 1);
   return normalize(doc);
 }

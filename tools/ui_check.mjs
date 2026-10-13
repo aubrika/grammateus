@@ -140,6 +140,19 @@ try {
     "| back cover still last:", await ev(`JSON.parse(window.grammateus.serialise()).parts.at(-1).last === true`));
   await shot("4-parts.png");
 
+  // enlarging the text to fill the sheets, and undoing it
+  const sizes = `JSON.parse(window.grammateus.serialise()).parts.map(p => p.size).join(', ')`;
+  const sizesBefore = await ev(sizes), reportBefore = await ev("JSON.stringify([window.grammateus.report().pages, window.grammateus.report().blankPages])");
+  await ev(`window.__seen = []; window.__t = setInterval(() => { const b = document.getElementById('busy'); if (!b.hidden) window.__seen.push(document.getElementById('busypct').textContent); }, 25)`);
+  await ev("window.grammateus.fitToSheets()");
+  await sleep(1200);
+  console.log("enlarge to fill: sizes", sizesBefore, "→", await ev(sizes), "| pages and blanks", reportBefore, "→", await ev("JSON.stringify([window.grammateus.report().pages, window.grammateus.report().blankPages])"),
+    "| progress readings:", await ev("new Set(window.__seen).size"), "| panel hidden after:", await ev("clearInterval(window.__t), document.getElementById('busy').hidden"));
+  console.log("  status:", await ev("document.getElementById('status').textContent"));
+  await sleep(800);
+  await ev("document.getElementById('undo').click()"); await sleep(1800);
+  console.log("  after undo, sizes:", await ev(sizes));
+
   // paste from Word: formatting we keep survives, the rest is dropped
   console.log("paste cleaning:", await ev(`(async () => { const { cleanHtml } = await import('/src/app/doc.js'); return cleanHtml('<p class="MsoNormal" style="margin:0"><span style="font-family:Calibri;color:red">The Lord be with you.</span></p><p class="MsoNormal"><b><span style="font-size:14pt">And also with you.</span></b></p><script>alert(1)</script>'); })()`));
 

@@ -56,6 +56,10 @@ try {
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/src/app/index.html` });
   await until("!!window.grammateus && !!window.grammateus.report()");
 
+  // note what the progress panel shows while the work goes on
+  await ev(`window.__seen = []; setInterval(() => { const b = document.getElementById('busy'); if (!b.hidden) window.__seen.push(document.getElementById('busypct').textContent + ' ' + document.getElementById('busytext').textContent); }, 25)`);
+  const progressSeen = async (label) => console.log(label, await ev(`(() => { const u = [...new Set(window.__seen)]; window.__seen = []; return u.length + ' different readings, e.g. ' + JSON.stringify([u[0], u[Math.floor(u.length / 2)], u.at(-1)]); })()`));
+
   // choose the PDF in the file picker
   await ev("window.confirm = () => true; document.getElementById('import').click()");
   const { root: docRoot } = (await send("DOM.getDocument")).result;
@@ -64,6 +68,8 @@ try {
   await ev("document.getElementById('pickpdf').dispatchEvent(new Event('change'))");
   const asked = await until("document.querySelector('#form h1')?.textContent === 'Import a bulletin PDF' || document.getElementById('status').className === 'warn' || /made by Grammateus/.test(document.getElementById('status').textContent)");
   await sleep(2500);
+  await progressSeen("progress panel while reading:");
+  console.log("panel hidden again:", await ev("document.getElementById('busy').hidden"));
   console.log("after reading:", await ev("document.getElementById('status').textContent"));
   if (await ev("/made by Grammateus/.test(document.getElementById('status').textContent)")) {
     console.log("opened from the copy stored in the PDF:", await ev(`(() => { const d = JSON.parse(window.grammateus.serialise()); return JSON.stringify({ title: d.meta.title, parts: d.parts.map(p => p.name + ': ' + p.blocks.length), images: Object.keys(d.images).length, report: window.grammateus.report() }); })()`));
@@ -78,6 +84,8 @@ try {
   await ev("document.querySelector('#form button.primary').click()");
   await until("document.querySelector('#form h1')?.textContent === 'Cover' || document.getElementById('status').className === 'warn'");
   await sleep(3500);
+  await progressSeen("progress panel while importing:");
+  console.log("panel hidden again:", await ev("document.getElementById('busy').hidden"));
   console.log("after import:", await ev("document.getElementById('status').textContent"));
   const summary = await ev(`(() => { const d = JSON.parse(window.grammateus.serialise()); const kinds = (list) => list.reduce((k, b) => (k[b.type] = (k[b.type] || 0) + 1, k), {});
     return JSON.stringify({ meta: d.meta, footer: d.cover.footer, parts: d.parts.map(p => ({ name: p.name, side: p.side, size: p.size, last: !!p.last, kinds: kinds(p.blocks), notes: p.blocks.filter(b => b.note).length })),
