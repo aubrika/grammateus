@@ -37,6 +37,7 @@
 .page.extra .main .heading { justify-content: center; font-variant: normal; font-size: 1.1em; }
 .main .text .gap { display: block; height: 0.4em; }
 .main .rule { border: 0; border-top: 1.5pt solid #000; margin: 5pt 0 0; }
+.main .rule.dotted { border-top: 1.2pt dotted #000; }
 .main .rule + * { margin-top: 3pt; }
 .main img.float { float: right; width: 34%; margin: 2pt 0 4pt 10pt; }
 .main img.float.left { float: left; margin: 2pt 10pt 4pt 0; }
@@ -48,7 +49,7 @@
 .main .text:has(img.float:not(.left))::after { content: ""; display: block; clear: both; }
 .roster { border: 1pt solid #000; padding: 0 3pt; }
 .roster-title { text-align: center; font-weight: 700; padding: 3pt 0; }
-.roster-row { display: flex; align-items: baseline; gap: 2pt; border-top: 0.5pt solid #999; padding: 3pt 0; }
+.roster-row { display: flex; align-items: baseline; gap: 2pt; padding: 3pt 0; }
 .roster-row > span { min-width: 0; }
 .roster-row .right { text-align: right; flex: 0 1 auto; max-width: 70%; }
 /* a row of full stops on the baseline, cut off where the name begins */
@@ -82,6 +83,11 @@
 .main .continues { position: absolute; bottom: 0; right: 0.1in; margin: 0; font-style: italic; font-size: var(--note-size); line-height: 1; }
 .page.even .main .continues { right: auto; left: 0.14in; }
 .sc { font-variant: small-caps; }
+/* words set larger or smaller than the text around them */
+.lg { font-size: 1.3em; line-height: 1.15; }
+.sm { font-size: 0.72em; }
+/* a centred title in larger words sits directly on the text under it */
+.main .text.center:has(.lg) + .text { margin-top: 0; }
 sup { font-size: 0.62em; line-height: 0; vertical-align: super; }
 
 /* ---- side notes ---- */

@@ -30,7 +30,7 @@ function blockElement(block, src) {
       return f;
     }
     case "rule":
-      return el("hr", "rule");
+      return el("hr", block.dotted ? "rule dotted" : "rule");
     case "roster": {
       // a boxed list of roles and names, joined by a row of dots
       const box = el("div", "roster");
@@ -210,6 +210,7 @@ async function flow(part, kind, pages, firstNumber, src, folio = true, before = 
     node.dataset.index = index;
     const font = block.font || fonts[block.type];           // this item's own font, or the font for its kind
     if (font) node.style.fontFamily = family(font);
+    if (block.size) node.style.fontSize = `${block.size}pt`;   // this item's own text size
     const pictures = [...node.querySelectorAll("img")];
     await Promise.all(pictures.map((i) => i.decode().catch(() => {})));
     let first = true;

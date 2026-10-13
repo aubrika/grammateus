@@ -148,7 +148,12 @@ function smallCapsText(parts, body) {
   return parts.map((p) => (p.size < body * 0.93 ? p.text.toLowerCase() : p.text)).join("").replace(/\s+/g, " ").trim();
 }
 
-function runHtml(parts, body) {
+// Text clearly larger or smaller than the body text of its page: "lg", "sm" or nothing.
+const sizeClass = (size, body) => (size >= body * 1.18 ? "lg" : size <= body * 0.82 ? "sm" : "");
+// the size most of a line is set in
+const lineSize = (line) => [...line.parts].sort((a, b) => b.text.trim().length - a.text.trim().length)[0].size;
+
+function runHtml(parts, body, { sizes = false } = {}) {
   // A word in small capitals is often written as a full-size capital followed by smaller
   // capitals ("H" + "OLY"). Put the word back together and mark the whole of it.
   const pieces = [];
@@ -171,11 +176,12 @@ function runHtml(parts, body) {
     let t = escapeHtml(p.text);
     if (!p.symbol && !p.sc && p.size <= body * 0.74 && /^\s*\d{1,3}\s*$/.test(p.text)) t = `<sup>${t.trim()}</sup>`;
     else if (p.sc) t = `<span class="sc">${t}</span>`;
+    else if (sizes && sizeClass(p.size, body) && p.text.trim()) t = `<span class="${sizeClass(p.size, body)}">${t}</span>`;
     if (p.italic) t = `<i>${t}</i>`;
     if (p.bold) t = `<b>${t}</b>`;
     out += t;
   }
-  return out.replace(/<\/b>(\s*)<b>/g, "$1").replace(/<\/i>(\s*)<i>/g, "$1").replace(/<\/span>(\s*)<span class="sc">/g, "$1")
+  return out.replace(/<\/b>(\s*)<b>/g, "$1").replace(/<\/i>(\s*)<i>/g, "$1").replace(/<\/span>(\s*)<span class="(sc|lg|sm)">(?<=<span class="\2">[^<]*<\/span>\s*<span class="\2">)/g, "$1")
             .replace(/[ \t]+/g, " ").trim();
 }
 
@@ -212,7 +218,10 @@ function classify(line, body) {
 }
 
 // Join lines into blocks. A gap wider than the usual line spacing starts a new paragraph.
-function paragraphs(lines, colLeft, colRight, body, { special = true } = {}) {
+// `fine` is for pages of ordinary prose, such as a welcome page: a change of text size or a
+// line that returns to the margin after indented lines also starts a new paragraph, and the
+// larger and smaller sizes are kept.
+function paragraphs(lines, colLeft, colRight, body, { special = true, fine = false } = {}) {
   const pitches = [];
   for (let i = 1; i < lines.length; i++) { const d = lines[i].base - lines[i - 1].base; if (d > body * 0.7 && d < body * 1.6) pitches.push(d); }
   const gap = (median(pitches) || body * 1.12) * 1.17;
@@ -221,7 +230,11 @@ function paragraphs(lines, colLeft, colRight, body, { special = true } = {}) {
   for (const line of lines) {
     const kind = special ? classify(line, body) : null;
     if (kind) { blocks.push({ ...kind, _top: line.top, _bottom: line.base }); current = null; continue; }
-    if (!current || line.base - current._bottom > gap) {
+    const previous = current?._lines.at(-1);
+    const turn = fine && previous && sizeClass(lineSize(line), body) !== sizeClass(lineSize(previous), body);
+    // a list item, or a line back at the margin after indented lines, starts on a new line
+    if (fine && previous && line.left < colLeft + 3 && (line.left < previous.left - 5 || /^[-\u2013\u2022]\s?\S/.test(line.text))) line._break = true;
+    if (!current || turn || line.base - current._bottom > gap) {
       current = { type: "text", _top: line.top, _bottom: line.base, _lines: [line] };
       blocks.push(current);
     } else {
@@ -233,10 +246,13 @@ function paragraphs(lines, colLeft, colRight, body, { special = true } = {}) {
   for (const b of blocks) {
     if (b.type !== "text") continue;
     let html = "";
+    // fine print keeps its true size as the size of the whole item, so its lines sit close together
+    const small = fine && b._lines.every((l) => sizeClass(lineSize(l), body) === "sm");
+    if (small) b.size = Math.round(median(b._lines.map(lineSize)) * 2) / 2;
     b._lines.forEach((line, k) => {
       // a line that stops well short of the margin ended on purpose
-      if (k) html += b._lines[k - 1].right < colRight - 0.22 * width ? "<br>" : " ";
-      html += runHtml(line.parts, body);
+      if (k) html += line._break || b._lines[k - 1].right < colRight - 0.22 * width ? "<br>" : " ";
+      html += runHtml(line.parts, small ? b.size : body, { sizes: fine });
     });
     b.html = html.replace(/<\/b>(\s*(?:<br>)?\s*)<b>/g, "$1");
     b._full = b._lines.at(-1).right > colRight - 0.12 * width;
@@ -423,7 +439,7 @@ function splitColumns(lines, left, right) {
 }
 
 // A page with no side column: the extra pages, the welcome page and the back page.
-function fullWidthPage(page, addImage, { announcements = false } = {}) {
+function fullWidthPage(page, addImage, { announcements = false, fine = false } = {}) {
   const texts = page.texts.filter((t) => t.text.trim() && t.top < page.height - 0.55 * IN);
   if (!texts.length && !page.images.length) return [];
   const body = bodySize([{ texts }]);
@@ -441,6 +457,12 @@ function fullWidthPage(page, addImage, { announcements = false } = {}) {
     dotted.forEach((l) => used.add(l));
     if (above) used.add(above);
   }
+  // a row of nothing but dots is a dotted line across the page
+  for (const l of lines) {
+    if (used.has(l) || !/^[.\u2026\s]{20,}$/.test(l.text)) continue;
+    blocks.push({ type: "rule", dotted: true, _top: l.top, _bottom: l.base });
+    used.add(l);
+  }
   // side-by-side columns of text; each column is read top to bottom on its own
   for (const run of splitColumns(lines.filter((l) => !used.has(l)), left, right)) {
     const cols = Array.from({ length: run.edges.length + 1 }, () => []);
@@ -453,7 +475,7 @@ function fullWidthPage(page, addImage, { announcements = false } = {}) {
     blocks.push({ type: "columns", columns: html.filter((h, i) => h || i < 2), _top: run.lines[0].top, _bottom: run.lines.at(-1).base });
   }
   // everything else, as paragraphs
-  const rest = paragraphs(lines.filter((l) => !used.has(l)), left, right, body, { special: false });
+  const rest = paragraphs(lines.filter((l) => !used.has(l)), left, right, body, { special: false, fine });
   let previousBold = false;
   for (const p of rest) {
     const bold = p.html.startsWith("<b>");
@@ -465,7 +487,7 @@ function fullWidthPage(page, addImage, { announcements = false } = {}) {
       last._bottom = p._bottom;
     } else {
       if (announcements && bold && !previousBold && blocks.some((b) => b.type === "text")) blocks.push({ type: "rule", _top: p._top - 1, _bottom: p._top - 1 });
-      blocks.push({ type: "text", html: p.html, align: p._center ? "center" : "left", _flow: announcements, _top: p._top, _bottom: p._bottom });
+      blocks.push({ type: "text", html: p.html, align: p._center ? "center" : "left", ...(p.size ? { size: p.size } : {}), _flow: announcements, _top: p._top, _bottom: p._bottom });
     }
     previousBold = bold && /<\/b>\s*$/.test(p.html);
   }
@@ -533,6 +555,7 @@ export async function inspectPdf(data, progress = async () => {}) {
 export async function buildBulletin({ pages, count }, first, last, progress = async () => {}) {
   // filled in as the four lists of the first file format, then turned into parts at the end
   const doc = { style: {}, meta: {}, cover: {}, welcome: [], welcomeLogo: "", service: [], extras: [], back: [], images: {} };
+  let welcomeBlocks = null, welcomeSize = 0;
   let n = 0;
   const addImage = (dataUrl) => { const id = `p${++n}`; doc.images[id] = dataUrl; return `img:${id}`; };
   const at = (number) => pages[number - 1];
@@ -553,8 +576,20 @@ export async function buildBulletin({ pages, count }, first, last, progress = as
     await progress("Rebuilding the welcome page…", 0.63);
     const welcome = at(2);
     const logo = pictureGroups(welcome.images)[0];
-    doc.welcomeLogo = logo ? addImage(stitch(logo)) : "";
-    doc.welcome = asItems(fullWidthPage({ ...welcome, images: [] }, addImage));
+    // the welcome page keeps its own headings, text sizes and lines
+    welcomeBlocks = fullWidthPage({ ...welcome, images: [] }, addImage, { fine: true });
+    welcomeSize = bodySize([welcome]);
+    const beside = welcomeBlocks.find((b) => b.type === "text");
+    if (logo && beside) {
+      // everything that sits beside the picture stays in one item, so it wraps around the picture
+      for (let i = welcomeBlocks.indexOf(beside) + 1; welcomeBlocks[i]?.type === "text" && welcomeBlocks[i]._top < logo.bottom - 4; ) {
+        const [more] = welcomeBlocks.splice(i, 1);
+        beside.html += "<br>" + more.html;
+        beside._bottom = more._bottom;
+      }
+      Object.assign(beside, { align: "left", float: addImage(stitch(logo)), floatSide: "left",
+        floatWidth: `${Math.max(10, Math.min(35, Math.round(100 * logo.width / (welcome.width - IN))))}%` });
+    }
   }
 
   doc.service = strip(await servicePages(pages.slice(first - 1, last), body, addImage,
@@ -580,5 +615,7 @@ export async function buildBulletin({ pages, count }, first, last, progress = as
   doc.style.noteSize = Math.round(noteSizes * 2) / 2 || 12;
   if (last + 1 < count) doc.style.extraSize = Math.round(bodySize(pages.slice(last, count - 1)) * 2) / 2 || 14.5;
   await progress("Laying out the pages…", 1);
-  return normalize(doc);
+  const made = normalize(doc);
+  if (welcomeBlocks) Object.assign(made.parts[0], { blocks: strip(welcomeBlocks), size: Math.round(welcomeSize * 2) / 2 || 13 });
+  return made;
 }

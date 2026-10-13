@@ -112,16 +112,18 @@ function rich(html, set, { note = false } = {}) {
     b.addEventListener("click", () => { run(); commit(); });
     return b;
   };
-  const smallCaps = () => {
+  const mark = (name) => () => {
     const sel = getSelection();
     if (!sel.rangeCount || sel.isCollapsed) return;
     const text = sel.toString().replace(/[<>&]/g, "");
-    document.execCommand("insertHTML", false, `<span class="sc">${text}</span>`);
+    document.execCommand("insertHTML", false, `<span class="${name}">${text}</span>`);
   };
   const bar = h("div", { class: "fmt" },
     fmt("B", "Bold: words everyone says together", () => document.execCommand("bold")),
     fmt("I", "Italic: instructions and titles", () => document.execCommand("italic")),
-    fmt("Sᴄ", "Small capitals", smallCaps),
+    fmt("Sᴄ", "Small capitals", mark("sc")),
+    fmt("Large", "Larger words, for a title inside the text", mark("lg")),
+    fmt("Small", "Smaller words, for fine print", mark("sm")),
     fmt("x²", "Raised, for verse numbers", () => document.execCommand("superscript")),
     fmt("Plain", "Remove formatting from the selected words", () => document.execCommand("removeFormat")));
   return h("div", { class: note ? "rich note" : "rich" }, bar, box);
@@ -248,6 +250,7 @@ function drawOutline() {
     if (tag) b.append(h("span", { class: "tag" }, tag));
     nav.append(b);
   };
+  row("part design", "Design", selected.kind === "design", () => select("design"));
   row("part", "Cover", selected.kind === "cover", () => select("cover"), doc.cover.show === false ? "off" : "");
   doc.parts.forEach((part, p) => {
     const tags = [part.side ? "side notes" : "", part.last ? "last" : ""].filter(Boolean).join(" · ");
@@ -262,7 +265,6 @@ function drawOutline() {
     changed();
     select("part", doc.parts.indexOf(part));
   });
-  row("part", "Design", selected.kind === "design", () => select("design"));
   nav.scrollTop = keep;
 }
 
@@ -400,7 +402,8 @@ function blockForm(form, p, i) {
   } else if (block.type === "pagebreak") {
     form.append(h("p", { class: "hint" }, "What follows starts at the top of a new page."));
   } else if (block.type === "rule") {
-    form.append(h("p", { class: "hint" }, "A line across the page, for separating announcements."));
+    form.append(h("p", { class: "hint" }, "A line across the page, for separating announcements."),
+      checkbox("Dotted line", !!block.dotted, (v) => (block.dotted = v || undefined)));
   } else if (block.type === "roster") {
     form.append(...textField("Title (optional)", block.title, (v) => (block.title = v), "Serving in the Liturgy"),
       h("label", {}, "Rows: what is on the left, and what is on the right"));
@@ -448,6 +451,12 @@ function blockForm(form, p, i) {
     });
     form.append(...fontField("Font for this item (optional)", () => block.font, (v) => { if (v) block.font = v; else delete block.font; },
       doc.style.fonts[block.type] || doc.style.font, everywhere));
+    if (["text", "columns", "roster"].includes(block.type)) {
+      const size = h("input", { type: "number", min: 5, max: 60, step: 0.5, value: block.size || "", placeholder: String(part.size) });
+      size.addEventListener("input", () => { const v = parseFloat(size.value); if (v >= 5 && v <= 60) block.size = v; else delete block.size; changed(false); });
+      form.append(h("label", {}, "Text size for this item, in points (optional)"), size,
+        h("p", { class: "hint" }, `Leave this empty to use the size of “${part.name}”, which is ${part.size} points.`));
+    }
   }
 
   if (block.type !== "pagebreak") {
@@ -637,9 +646,12 @@ async function fitToSheets() {
   if (fitting) return;
   fitting = true;
   commitSnapshot();
-  const original = { parts: doc.parts.map((p) => p.size), note: doc.style.noteSize };
+  const original = { parts: doc.parts.map((p) => p.size), note: doc.style.noteSize, items: doc.parts.map((p) => p.blocks.map((b) => b.size)) };
   const quarter = (v) => Math.round(v * 4) / 4;
-  const apply = (k) => { doc.parts.forEach((p, i) => (p.size = quarter(original.parts[i] * k))); doc.style.noteSize = quarter(original.note * k); };
+  const apply = (k) => {
+    doc.parts.forEach((p, i) => { p.size = quarter(original.parts[i] * k); p.blocks.forEach((b, j) => { if (original.items[i][j]) b.size = quarter(original.items[i][j] * k); }); });
+    doc.style.noteSize = quarter(original.note * k);
+  };
   const measure = async () => {                 // pages of content, with no blank pages added
     const kept = [doc.wholeSheets, doc.extraSheets];
     doc.wholeSheets = false; doc.extraSheets = 0;

@@ -146,8 +146,8 @@ export function pruneImages(doc) {
   return doc;
 }
 
-// Keep only the formatting a bulletin uses: bold, italic, underline, small capitals,
-// superscript and line breaks. Word and web pages paste a great deal more than that.
+// Keep only the formatting a bulletin uses: bold, italic, underline, small capitals, larger
+// and smaller words, superscript and line breaks. Word and web pages paste a great deal more than that.
 export function cleanHtml(html, documentRef = globalThis.document) {
   const box = documentRef.createElement("template");
   box.innerHTML = html;
@@ -166,12 +166,13 @@ export function cleanHtml(html, documentRef = globalThis.document) {
       if (tag === "I" || tag === "EM" || /font-style:\s*italic/.test(style)) wraps.push("i");
       if (tag === "U") wraps.push("u");
       if (tag === "SUP" || /vertical-align:\s*super/.test(style)) wraps.push("sup");
-      const smallCaps = child.classList.contains("sc") || /font-variant(-caps)?:\s*small-caps/.test(style);
+      const marks = ["lg", "sm"].filter((c) => child.classList.contains(c));
+      if (child.classList.contains("sc") || /font-variant(-caps)?:\s*small-caps/.test(style)) marks.push("sc");
       if (BLOCKS.has(tag) && out.length && !/<br>\s*$/.test(out.at(-1))) out.push("<br>");
       for (const w of wraps) out.push(`<${w}>`);
-      if (smallCaps) out.push('<span class="sc">');
+      for (const m of marks) out.push(`<span class="${m}">`);
       walk(child);
-      if (smallCaps) out.push("</span>");
+      for (const m of marks) out.push("</span>");
       for (const w of wraps.reverse()) out.push(`</${w}>`);
       if (BLOCKS.has(tag)) out.push("<br>");
     }
