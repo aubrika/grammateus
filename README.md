@@ -45,8 +45,10 @@ npm start          # the desktop program
 npm test
 ```
 
-The Windows installer is built by the workflow in `.github/workflows/build.yml` and
-can be downloaded from that run's page. It adds Grammateus to the Start menu.
+The Windows installer is on the repository's Releases page. It adds Grammateus to the
+Start menu. The workflow in `.github/workflows/build.yml` builds it on every push, and
+publishes it as a release when a tag is pushed: set the version in `package.json`,
+then `git tag v0.2.0 && git push origin v0.2.0`.
 
 For development without the desktop shell, the page-making script needs Chromium:
 
