@@ -24,12 +24,14 @@ built automatically but has not yet been tried on a real Windows computer.
 - **Pasting is clean.** Text pasted from Word or a web page keeps bold, italic, small
   capitals and line breaks, and loses everything else.
 - **Whole sheets.** A folded bulletin is made of sheets of four pages. The program
-  always makes a multiple of four, and extra sheets (for announcements and the like)
-  are added or removed with one button.
+  pads to a multiple of four with blank pages before the back cover, and extra sheets
+  (for announcements and the like) are added or removed with one button. The padding
+  can be switched off for printers that add blank pages themselves.
 - **One file per bulletin.** A `.bulletin` file holds the words and the pictures, so
   next week starts by opening last week's and saving it under a new name.
 - **Any font.** A good open font comes with the program, so a bulletin looks the same
-  on every computer. A church can choose another font it has installed.
+  on every computer. A church can choose another font it has installed: for the whole
+  bulletin, for one kind of item (all headings, all side notes), or for a single item.
 - **Make PDF** writes letter-size pages in reading order, ready for a copier that
   folds and staples.
 - **Import a bulletin PDF.** A finished bulletin PDF can be turned back into an

@@ -25,6 +25,11 @@ button.danger:hover { border-color: #a00; color: #a00; }
 button:disabled { opacity: 0.45; cursor: default; }
 
 main { flex: 1; display: grid; grid-template-columns: 270px minmax(340px, 1fr) minmax(360px, 46%); min-height: 0; }
+/* with the outline hidden the pages get the room; items are chosen by clicking them on the page */
+main.no-outline { grid-template-columns: minmax(340px, 1fr) minmax(360px, 56%); }
+main.no-outline #outline { display: none; }
+#toggle { padding: 5px 9px; }
+#toggle[aria-pressed="false"] { background: var(--panel); }
 #outline, #form, #preview { overflow: auto; }
 
 #outline { background: var(--panel); border-right: 1px solid var(--line); padding: 8px 0; }
@@ -46,6 +51,7 @@ main { flex: 1; display: grid; grid-template-columns: 270px minmax(340px, 1fr) m
 
 #form { background: #fff; padding: 16px 20px 40px; }
 #form h1 { font-size: 18px; margin: 0 0 4px; }
+#form h2 { font-size: 14px; margin: 22px 0 2px; padding-top: 12px; border-top: 1px solid var(--line); }
 #form .hint { color: var(--muted); margin: 0 0 14px; }
 #form label { display: block; margin: 12px 0 4px; font-weight: 600; }
 #form label.check { display: flex; gap: 8px; align-items: center; font-weight: 400; }
@@ -56,6 +62,8 @@ main { flex: 1; display: grid; grid-template-columns: 270px minmax(340px, 1fr) m
 #form .add span { color: var(--muted); }
 #form .item { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 8px 0; }
 #form .item .itemtools { display: flex; gap: 6px; margin-top: 6px; }
+#form .fontrow { display: flex; gap: 6px; align-items: center; }
+#form .fontrow input { flex: 1; }
 #form .pair { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; margin: 4px 0; }
 #form img.thumb { max-width: 100%; max-height: 220px; border: 1px solid var(--line); display: block; margin: 6px 0; background: #fff; }
 #form .logos { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

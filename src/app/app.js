@@ -2,7 +2,7 @@
 // in the middle, and a live preview of the pages on the right.
 
 import { layoutBulletin } from "../renderer/layout.js";
-import { BLOCK_NAMES, addImage, cleanHtml, emptyBulletin, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "./doc.js";
+import { BLOCK_NAMES, FONT_KINDS, addImage, cleanHtml, emptyBulletin, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "./doc.js";
 
 const $ = (id) => document.getElementById(id);
 const desk = window.desk || null;            // provided by the desktop program; absent in a plain browser
@@ -64,6 +64,29 @@ function pickImage() {
     };
     input.click();
   });
+}
+
+// The fonts offered when choosing one: those installed on this computer where the program is
+// allowed to ask, otherwise a list of common ones. Any name can still be typed.
+const COMMON_FONTS = ["EB Garamond", "Garamond", "Georgia", "Times New Roman", "Cambria", "Palatino Linotype", "Book Antiqua",
+                      "Constantia", "Calibri", "Candara", "Segoe UI", "Verdana", "Arial", "Gill Sans MT", "Century Gothic"];
+let fontsLoaded = false;
+async function loadFonts() {
+  if (fontsLoaded) return;
+  fontsLoaded = true;
+  let names = COMMON_FONTS;
+  try {
+    if (window.queryLocalFonts) names = [...new Set(["EB Garamond", ...(await window.queryLocalFonts()).map((f) => f.family)])].sort((a, b) => a.localeCompare(b));
+  } catch { /* not allowed here: keep the common list */ }
+  $("fonts").replaceChildren(...names.map((f) => h("option", { value: f })));
+}
+
+// A box for choosing a font. Empty means "the same as the rest".
+function fontField(label, get, set, placeholder, extra) {
+  const input = h("input", { type: "text", value: get() || "", list: "fonts", placeholder });
+  input.addEventListener("focus", loadFonts);
+  input.addEventListener("input", () => { set(input.value.trim()); changed(false); });
+  return [h("label", {}, label), h("div", { class: "fontrow" }, input, extra)];
 }
 
 const imageUrl = (ref) => (ref && ref.startsWith("img:") ? doc.images[ref.slice(4)] : ref) || "";
@@ -186,12 +209,15 @@ function fixSelection() {
   }
 }
 
-function select(kind, p = 0, i = 0) {
+// Choosing from the outline brings the item into view on the pages. Choosing by clicking the
+// pages leaves the pages where they are and brings the outline to the item instead.
+function select(kind, p = 0, i = 0, fromPages = false) {
   selected = { kind, p, i };
   fixSelection();
   drawOutline();
   drawForm();
-  highlight(true);
+  highlight(!fromPages);
+  if (fromPages) $("outline").querySelector(".row.on")?.scrollIntoView({ block: "nearest" });
 }
 
 function drawOutline() {
@@ -259,15 +285,20 @@ function sizeField(label, get, set, min, max) {
 }
 
 function designForm(form) {
-  const fonts = ["EB Garamond", "Garamond", "Georgia", "Times New Roman", "Cambria", "Palatino Linotype", "Book Antiqua", "Calibri", "Arial"];
-  const list = h("datalist", { id: "fonts" }, ...fonts.map((f) => h("option", { value: f })));
-  const font = h("input", { type: "text", value: doc.style.font, list: "fonts" });
-  font.addEventListener("input", () => { doc.style.font = font.value.trim() || "EB Garamond"; changed(false); });
+  const fonts = doc.style.fonts;
   form.append(h("h1", {}, "Design"),
     h("p", { class: "hint" }, "These apply to the whole bulletin. EB Garamond comes with the program, so it looks the same on every computer. " +
       "Any other font must be installed on the computer that makes the PDF. The size of the main text is set for each part."),
-    h("label", {}, "Font"), font, list,
-    ...sizeField("Size of the side notes (points)", () => doc.style.noteSize, (v) => (doc.style.noteSize = v), 7, 16));
+    ...fontField("Font for the whole bulletin", () => doc.style.font, (v) => (doc.style.font = v || "EB Garamond"), "EB Garamond"),
+    ...sizeField("Size of the side notes (points)", () => doc.style.noteSize, (v) => (doc.style.noteSize = v), 7, 16),
+    h("h2", {}, "A different font for one kind of item"),
+    h("p", { class: "hint" }, "Leave a box empty to use the bulletin's font. A single item can also be given its own font, where you edit it."),
+    ...Object.entries(FONT_KINDS).flatMap(([kind, words]) => fontField(words.charAt(0).toUpperCase() + words.slice(1), () => fonts[kind],
+      (v) => { if (v) fonts[kind] = v; else delete fonts[kind]; }, "the bulletin's font")),
+    h("h2", {}, "Sheets of paper"),
+    checkbox("Add blank pages so the bulletin fills whole sheets (four pages to a sheet)", doc.wholeSheets, (v) => (doc.wholeSheets = v)),
+    h("p", { class: "hint" }, "A folded bulletin is printed on whole sheets, so its page count must be a multiple of four. With this on, any blank pages " +
+      "are placed just before the back cover, so the back cover is still the outside. Turn it off if your printer or copier adds the blanks itself."));
 }
 
 const ADDABLE = ["section", "heading", "text", "hymn", "image", "roster", "columns", "logos", "rule", "pagebreak"];
@@ -383,6 +414,20 @@ function blockForm(form, p, i) {
     }
   }
 
+  if (FONT_KINDS[block.type]) {
+    const everywhere = h("button", { title: `Use this font for all ${FONT_KINDS[block.type]} in the bulletin` }, `Use for all ${FONT_KINDS[block.type]}`);
+    everywhere.addEventListener("click", () => {
+      const font = block.font || "";
+      if (font) doc.style.fonts[block.type] = font; else delete doc.style.fonts[block.type];
+      for (const pt of doc.parts) for (const b of pt.blocks) if (b.type === block.type) delete b.font;     // they all follow the kind now
+      changed(); drawForm();
+      notice = font ? `All ${FONT_KINDS[block.type]} now use ${font}.` : `All ${FONT_KINDS[block.type]} now use the bulletin's font.`;
+      showStatus();
+    });
+    form.append(...fontField("Font for this item (optional)", () => block.font, (v) => { if (v) block.font = v; else delete block.font; },
+      doc.style.fonts[block.type] || doc.style.font, everywhere));
+  }
+
   if (block.type !== "pagebreak") {
     if (part.side) {
       form.append(h("label", {}, "Side note (optional)"),
@@ -440,11 +485,9 @@ function highlight(scroll) {
 
 $("shown").addEventListener("click", (e) => {
   const block = e.target.closest("[data-index]");
-  if (block) return select("block", Number(block.dataset.part), Number(block.dataset.index));
-  const page = e.target.closest(".page[data-part]");
-  if (!page) return;
-  if (page.dataset.part === "cover") select("cover");
-  else if (page.dataset.part !== "blank") select("part", Number(page.dataset.part));
+  if (block) return select("block", Number(block.dataset.part), Number(block.dataset.index), true);
+  // a click on the empty paper of a page chooses nothing, so the view never jumps
+  if (e.target.closest('.page[data-part="cover"]')) select("cover", 0, 0, true);
 });
 
 function showStatus() {
@@ -455,7 +498,8 @@ function showStatus() {
   if (problem) { status.className = "warn"; status.textContent = problem; return; }
   status.className = "";
   if (!report) { status.textContent = "Laying out the pages…"; return; }
-  const parts = [`${report.pages} pages on ${report.sheets} ${report.sheets === 1 ? "sheet" : "sheets"}`];
+  const parts = [report.wholeSheets ? `${report.pages} pages on ${report.sheets} ${report.sheets === 1 ? "sheet" : "sheets"}`
+                                    : `${report.pages} pages (the printer will add blank pages to fill ${report.sheets} sheets)`];
   if (report.blankPages) parts.push(`${report.blankPages} blank ${report.blankPages === 1 ? "page" : "pages"}${doc.parts.some((x) => x.last) ? " before the back cover" : " at the end"}`);
   if (report.crowdedSides.length) { status.className = "warn"; parts.push(`too many side notes on page ${report.crowdedSides.join(", ")}`); }
   parts.push(dirty ? "not saved" : "saved");
@@ -628,6 +672,13 @@ $("saveas").addEventListener("click", () => saveFile(true));
 $("pdf").addEventListener("click", makePdf);
 $("undo").addEventListener("click", undo);
 $("redo").addEventListener("click", redo);
+function showOutline(on) {
+  document.querySelector("main").classList.toggle("no-outline", !on);
+  $("toggle").setAttribute("aria-pressed", String(on));
+  try { localStorage.setItem("outline", on ? "shown" : "hidden"); } catch { /* remembering it is optional */ }
+}
+$("toggle").addEventListener("click", () => showOutline($("toggle").getAttribute("aria-pressed") !== "true"));
+try { if (localStorage.getItem("outline") === "hidden") showOutline(false); } catch { /* first run */ }
 $("more").addEventListener("click", () => { doc.extraSheets++; changed(false); });
 $("fewer").addEventListener("click", () => { if (doc.extraSheets > 0) { doc.extraSheets--; changed(false); } });
 window.addEventListener("beforeunload", (e) => { if (dirty && !desk) { e.preventDefault(); e.returnValue = ""; } });

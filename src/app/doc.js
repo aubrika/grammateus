@@ -7,6 +7,12 @@
 
 export const FORMAT = 2;
 
+// The kinds of item that can each be given their own font, with the words used for "all of them".
+export const FONT_KINDS = {
+  section: "section titles", heading: "headings", text: "text", hymn: "hymn titles", note: "side notes",
+  roster: "lists with dotted lines", columns: "columns", cover: "the cover",
+};
+
 export const BLOCK_NAMES = {
   section: "Section title",
   heading: "Heading",
@@ -53,7 +59,11 @@ function upgrade(doc) {
 export function normalize(doc) {
   if (!Array.isArray(doc.parts)) upgrade(doc);
   doc.format = FORMAT;
-  doc.style = { font: doc.style?.font || "EB Garamond", noteSize: doc.style?.noteSize || 12 };
+  // `fonts` holds a font for each kind of item ("heading", "text", "note" and so on); a kind
+  // that is not listed uses the bulletin's font
+  const fonts = Object.fromEntries(Object.entries(doc.style?.fonts || {}).filter(([, v]) => v));
+  doc.style = { font: doc.style?.font || "EB Garamond", noteSize: doc.style?.noteSize || 12, fonts };
+  doc.wholeSheets = doc.wholeSheets !== false;
   doc.meta = { title: "", sunday: "", date: "", ...(doc.meta || {}) };
   doc.cover = { show: true, image: "", footer: [], ...(doc.cover || {}) };
   doc.parts = doc.parts.map((p) => ({ name: p.name || "Part", side: !!p.side, size: p.size || 14.5, ...(p.last ? { last: true } : {}), blocks: p.blocks || [] }));

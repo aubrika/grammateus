@@ -37,7 +37,9 @@ function blockElement(block, src) {
       if (block.title) box.append(el("div", "roster-title", block.title));
       for (const row of block.rows || []) {
         const line = el("div", "roster-row");
-        line.append(el("span", "", row.left || ""), el("span", "dots"), el("span", "", row.right || ""));
+        const dots = el("span", "dots");
+        dots.textContent = " " + ". ".repeat(200);           // clipped to the space between the two sides
+        line.append(el("span", "", row.left || ""), dots, el("span", "right", row.right || ""));
         box.append(line);
       }
       return box;
@@ -190,6 +192,9 @@ function flowPage(pages, number, part, partIndex, folio, before) {
 
 const fits = (main) => main.scrollHeight <= main.clientHeight + 0.5;
 
+const family = (name) => `"${String(name).replace(/["\\]/g, "")}", var(--serif)`;
+let fonts = {};                                           // font for each kind of item, set per layout
+
 async function flow(part, kind, pages, firstNumber, src, folio = true, before = null) {
   const blocks = part.blocks || [];
   if (!blocks.some((b) => b.type !== "pagebreak")) return [];
@@ -203,6 +208,8 @@ async function flow(part, kind, pages, firstNumber, src, folio = true, before = 
     let node = blockElement(block, src);
     node.dataset.part = kind;
     node.dataset.index = index;
+    const font = block.font || fonts[block.type];           // this item's own font, or the font for its kind
+    if (font) node.style.fontFamily = family(font);
     const pictures = [...node.querySelectorAll("img")];
     await Promise.all(pictures.map((i) => i.decode().catch(() => {})));
     let first = true;
@@ -295,6 +302,7 @@ function placeNotes(servicePages, src) {
     for (const { node, block, first } of sp.placed) {
       if (!block.note || !first) continue;
       const n = el("div", "note", block.note);
+      if (fonts.note) n.style.fontFamily = family(fonts.note);
       if (block.noteImage) { const img = el("img"); img.src = src(block.noteImage); n.append(img); }
       n.dataset.part = node.dataset.part;
       n.dataset.index = node.dataset.index;
@@ -322,6 +330,7 @@ function coverPage(doc, src) {
   if (doc.cover.image) { const img = el("img"); img.src = src(doc.cover.image); art.append(img); }
   page.append(top, art, el("div", "foot", (doc.cover.footer || []).join("<br>")));
   page.dataset.part = "cover";
+  if (doc.style?.fonts?.cover) page.style.fontFamily = family(doc.style.fonts.cover);
   return page;
 }
 
@@ -340,6 +349,9 @@ export async function layoutBulletin(doc, pages, base = "") {
   const style = doc.style || {};
   pages.style.setProperty("--serif", `"${style.font || "EB Garamond"}", "EB Garamond", serif`);
   pages.style.setProperty("--note-size", `${style.noteSize || 12}pt`);
+  fonts = style.fonts || {};
+  // without whole sheets, only the sheets asked for are added; the printer supplies any other blanks
+  const sheetsFor = (count) => (doc.wholeSheets === false ? count / 4 : Math.ceil(count / 4) || 1) + Math.max(0, doc.extraSheets || 0);
   pages.replaceChildren();
   await document.fonts.ready;
   let number = 0;
@@ -361,8 +373,7 @@ export async function layoutBulletin(doc, pages, base = "") {
   if (lastIndex >= 0) {
     let made = await flow(parts[lastIndex], lastIndex, pages, number + 1, src, false);
     total = number + made.length;
-    const needed = (Math.ceil(total / 4) || 1) + Math.max(0, doc.extraSheets || 0);
-    blanks = needed * 4 - total;
+    blanks = Math.round(sheetsFor(total) * 4 - total);
     if (blanks) {
       made.forEach((m) => m.page.remove());
       for (let i = 0; i < blanks; i++) { const b = el("div", "page blank"); b.dataset.part = "blank"; pages.append(b); }
@@ -371,8 +382,7 @@ export async function layoutBulletin(doc, pages, base = "") {
     flows[lastIndex] = made;
     total = number + blanks + made.length;
   } else {
-    const needed = (Math.ceil(total / 4) || 1) + Math.max(0, doc.extraSheets || 0);
-    blanks = needed * 4 - total;
+    blanks = Math.round(sheetsFor(total) * 4 - total);
     for (let i = 0; i < blanks; i++) { const b = el("div", "page blank"); b.dataset.part = "blank"; pages.append(b); }
     total += blanks;
   }
@@ -383,7 +393,8 @@ export async function layoutBulletin(doc, pages, base = "") {
   const order = [...pages.children];
   return {
     pages: total,
-    sheets: total / 4,
+    sheets: Math.ceil(total / 4),
+    wholeSheets: total % 4 === 0,
     blankPages: blanks,
     parts: parts.map((p, i) => ({ name: p.name, pages: (flows[i] || []).length })),
     crowdedSides: every.filter((f) => f.overfullSide).map((f) => order.indexOf(f.page) + 1 - (doc.cover.show !== false ? 1 : 0)),

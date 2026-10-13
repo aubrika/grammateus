@@ -109,6 +109,28 @@ try {
   console.log("side column was", had ? "on" : "off", "→ pages of that part now have a side column:", await ev(`!!document.querySelector('#shown .page[data-part="' + (document.querySelectorAll('#outline .row.part.title').length - 2) + '"] .side')`));
   await ev(`${sideBox}.click()`); await sleep(1500);
 
+  // a font for one item, then for every item of its kind
+  await ev(`[...document.querySelectorAll('#outline .row.heading')][0].click()`); await sleep(300);
+  await ev(`(() => { const i = document.querySelector('#form .fontrow input'); i.focus(); i.value = 'Georgia'; i.dispatchEvent(new Event('input', {bubbles:true})); })()`);
+  await sleep(1500);
+  const fontsOf = `[...document.querySelectorAll('#shown .heading')].filter(h => h.style.fontFamily.includes('Georgia')).length`;
+  const one = await ev(fontsOf);
+  await ev(`document.querySelector('#form .fontrow button').click()`); await sleep(1500);
+  console.log("headings in Georgia: after setting one item:", one, "→ after 'use for all headings':", await ev(fontsOf), "of", await ev(`document.querySelectorAll('#shown .heading').length`),
+    "| status:", await ev("document.getElementById('status').textContent.slice(0, 40)"));
+
+  // hiding the outline, and clicking the page without the view jumping
+  await ev("document.getElementById('toggle').click()"); await sleep(300);
+  const hidden = await ev("getComputedStyle(document.getElementById('outline')).display === 'none'");
+  await ev("document.getElementById('preview').scrollTop = 900"); await sleep(200);
+  const scrollBefore = await ev("document.getElementById('preview').scrollTop");
+  await ev(`(() => { const pages = [...document.querySelectorAll('#shown .page')]; pages[2].click(); })()`); await sleep(500);
+  const afterPaper = await ev("document.getElementById('preview').scrollTop");
+  await ev(`[...document.querySelectorAll('#shown .page')][2].querySelector('[data-index]').click()`); await sleep(700);
+  console.log("outline hidden:", hidden, "| clicking empty paper moved the view:", afterPaper !== scrollBefore, "| clicking an item moved the view:", await ev("document.getElementById('preview').scrollTop") !== scrollBefore,
+    "| item chosen:", await ev("document.querySelector('#form h1').textContent"));
+  await ev("document.getElementById('toggle').click()"); await sleep(300);
+
   // a new part can be added and removed
   const partsBefore = await ev(`document.querySelectorAll('#outline .row.part.title').length`);
   await ev(`document.querySelector('#outline .row.part.add').click()`); await sleep(500);

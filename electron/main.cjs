@@ -1,6 +1,6 @@
 // The desktop program: one window showing the editing screen, with real files and menus.
 
-const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const { pathToFileURL } = require("node:url");
@@ -67,6 +67,9 @@ app.whenReady().then(() => {
     if (!file.startsWith(rootDir)) return new Response("", { status: 403 });
     return net.fetch(pathToFileURL(file).toString());
   });
+  // the only permission the screen needs: to list the fonts installed on this computer
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, allow) => allow(permission === "local-fonts"));
+  session.defaultSession.setPermissionCheckHandler((_contents, permission) => permission === "local-fonts");
   Menu.setApplicationMenu(menu());
   createWindow();
 });

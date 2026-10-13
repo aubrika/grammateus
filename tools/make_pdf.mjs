@@ -73,7 +73,8 @@ try {
   await mkdir(outDir, { recursive: true });
   const name = basename(dirname(resolve(docPath)));
   await writeFile(join(outDir, `${name}-reading.pdf`), reading);
-  await writeFile(join(outDir, `${name}-print.pdf`), await impose(reading));
+  // the folded arrangement only exists for whole sheets
+  if (report.pages % 4 === 0) await writeFile(join(outDir, `${name}-print.pdf`), await impose(reading));
   console.log(JSON.stringify(report));
 } finally {
   ws?.close();

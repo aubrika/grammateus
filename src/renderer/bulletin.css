@@ -48,10 +48,14 @@
 .main .text:has(img.float:not(.left))::after { content: ""; display: block; clear: both; }
 .roster { border: 1pt solid #000; padding: 0 3pt; }
 .roster-title { text-align: center; font-weight: 700; padding: 3pt 0; }
-.roster-row { display: flex; align-items: baseline; gap: 3pt; border-top: 0.5pt solid #999; padding: 3pt 0; }
-.roster-row .dots { flex: 1; border-bottom: 1.2pt dotted #000; transform: translateY(-3pt); min-width: 0.3in; }
-.columns { display: flex; gap: 0.25in; align-items: flex-start; }
-.columns > div { flex: 1; min-width: 0; }
+.roster-row { display: flex; align-items: baseline; gap: 2pt; border-top: 0.5pt solid #999; padding: 3pt 0; }
+.roster-row > span { min-width: 0; }
+.roster-row .right { text-align: right; flex: 0 1 auto; max-width: 70%; }
+/* a row of full stops on the baseline, cut off where the name begins */
+.roster-row .dots { flex: 1 1 0.3in; overflow: hidden; white-space: nowrap; overflow-wrap: normal; min-width: 0.3in; }
+/* columns share the width equally, but none is made narrower than its longest word */
+.columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(min-content, 1fr); gap: 0.25in; align-items: start; }
+.columns > div { min-width: 0; overflow-wrap: break-word; }
 .columns img.under { display: block; width: 55%; margin: 0.15in auto 0; }
 
 .page .folio { position: absolute; top: 10.5in; left: 0; right: 0; text-align: center; font-size: 12pt; line-height: 1; }
@@ -61,11 +65,15 @@
 .main > :first-child, .main .heading + .text, .main .heading + .hymn { margin-top: 0; }
 .main .section { text-align: center; font-weight: 700; font-variant: small-caps; font-size: 1.6em; line-height: 1.125; }
 .main .section .plus { font-size: 0.83em; }
-.main .heading { font-weight: 700; font-variant: small-caps; display: flex; justify-content: space-between; gap: 0.2in; }
-.main .heading .ref { font-weight: 400; font-variant: normal; white-space: nowrap; }
+/* every kind of text wraps to the next line when it reaches the edge of its column */
+.main, .side { overflow-wrap: break-word; }
+.main .heading { font-weight: 700; font-variant: small-caps; display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 0.2in; }
+.main .heading > * { min-width: 0; }
+.main .heading .ref { font-weight: 400; font-variant: normal; margin-left: auto; text-align: right; }
 .main .heading .title { font-weight: 400; font-variant: normal; font-style: italic; flex: 1; text-align: center; }
 .main .text { orphans: 2; widows: 2; }
-.main .hymn { display: flex; justify-content: space-between; align-items: baseline; gap: 0.2in; }
+.main .hymn { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; column-gap: 0.2in; }
+.main .hymn > * { min-width: 0; }
 .main .hymn .title { font-style: italic; flex: 1; text-align: center; }
 .main .hymn .number { white-space: nowrap; }
 .main figure { margin: 4pt 0 0; text-align: center; line-height: 0; }

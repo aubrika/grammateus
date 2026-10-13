@@ -149,11 +149,28 @@ function smallCapsText(parts, body) {
 }
 
 function runHtml(parts, body) {
-  let out = "";
+  // A word in small capitals is often written as a full-size capital followed by smaller
+  // capitals ("H" + "OLY"). Put the word back together and mark the whole of it.
+  const pieces = [];
   for (const p of parts) {
+    const small = !p.symbol && isSmallCap(p, body);
+    if (small && pieces.length && !pieces.at(-1).sc) {
+      const before = pieces.at(-1);
+      const lead = before.text.match(/[A-Z\u00C0-\u00DE]+$/);          // the capital(s) that begin this word
+      if (lead && before.bold === p.bold && before.italic === p.italic) {
+        before.text = before.text.slice(0, -lead[0].length);
+        pieces.push({ ...p, text: lead[0] + p.text.toLowerCase(), sc: true });
+        continue;
+      }
+    }
+    pieces.push(small ? { ...p, text: p.text.toLowerCase(), sc: true } : { ...p });
+  }
+  let out = "";
+  for (const p of pieces) {
+    if (!p.text) continue;
     let t = escapeHtml(p.text);
-    if (!p.symbol && p.size <= body * 0.74 && /^\s*\d{1,3}\s*$/.test(p.text)) t = `<sup>${t.trim()}</sup>`;
-    else if (!p.symbol && isSmallCap(p, body)) t = `<span class="sc">${t.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase())}</span>`;
+    if (!p.symbol && !p.sc && p.size <= body * 0.74 && /^\s*\d{1,3}\s*$/.test(p.text)) t = `<sup>${t.trim()}</sup>`;
+    else if (p.sc) t = `<span class="sc">${t}</span>`;
     if (p.italic) t = `<i>${t}</i>`;
     if (p.bold) t = `<b>${t}</b>`;
     out += t;
@@ -303,6 +320,7 @@ function servicePages(pages, body, addImage) {
   for (const page of pages) {
     const { mainL, mainR, noteL, noteR } = columnsOf(page);
     const inMain = (x) => x >= mainL - 4 && x < mainR;
+    const continues = page.texts.some((t) => /continued on the following/i.test(t.text));
     const texts = page.texts.filter((t) => t.top < page.height - 0.55 * IN && !/continued on the following/i.test(t.text));
     const main = paragraphs(linesOf(texts.filter((t) => inMain(t.left)), body), mainL + 3, mainR - 5, body);
     const noteTexts = texts.filter((t) => !inMain(t.left));
@@ -310,12 +328,11 @@ function servicePages(pages, body, addImage) {
     const pageBlocks = [...main];
     const sidePictures = [];
     for (const g of pictureGroups(page.images)) {
-      const ref = addImage(stitch(g));
       if (inMain(g.left + g.width / 2)) {
         const width = Math.min(100, Math.round(100 * g.width / (mainR - mainL - 0.11 * IN)));
-        pageBlocks.push({ type: "image", src: ref, _top: g.top, _bottom: g.bottom, ...(width < 92 ? { width: `${width}%` } : {}) });
+        pageBlocks.push({ type: "image", _group: g, _top: g.top, _bottom: g.bottom, ...(width < 92 ? { width: `${width}%` } : {}) });
       } else {
-        sidePictures.push({ top: g.top, ref });
+        sidePictures.push({ top: g.top, ref: addImage(stitch(g)) });
       }
     }
     pageBlocks.sort((a, b) => a._top - b._top);
@@ -333,6 +350,17 @@ function servicePages(pages, body, addImage) {
       const above = notes.filter((n) => n._anchor && n._top <= pic.top).sort((a, b) => b._top - a._top)[0];
       if (above) above._anchor.noteImage = pic.ref;
     }
+    // music that ran over from the previous page ("continued on the following page…") is one
+    // picture; joined again, the program can break it wherever the new layout needs
+    const carried = blocks.at(-1);
+    if (carried?._continues && carried.type === "image" && pageBlocks[0]?.type === "image"
+        && Math.abs(carried._group.width - pageBlocks[0]._group.width) < 12) {
+      carried._group = { ...carried._group, strips: [...carried._group.strips, ...pageBlocks[0]._group.strips] };
+      if (pageBlocks[0].note) carried.note = carried.note ? `${carried.note}<br><br>${pageBlocks[0].note}` : pageBlocks[0].note;
+      pageBlocks.shift();
+    }
+    if (blocks.length) delete blocks.at(-1)._continues;
+    if (continues && pageBlocks.at(-1)?.type === "image") pageBlocks.at(-1)._continues = true;
     // a paragraph that ran over from the previous page is one paragraph
     if (blocks.length && pageBlocks.length && blocks.at(-1).type === "text" && pageBlocks[0].type === "text"
         && blocks.at(-1)._full && !pageBlocks[0].note) {
@@ -342,6 +370,7 @@ function servicePages(pages, body, addImage) {
     }
     blocks.push(...pageBlocks);
   }
+  for (const b of blocks) if (b.type === "image") { b.src = addImage(stitch(b._group)); delete b._group; }
   return blocks;
 }
 
@@ -373,10 +402,13 @@ function splitColumns(lines, left, right) {
       const gap = i ? p.left - l.parts[i - 1].right : p.left - left;
       if (p.text.trim() && gap > 0.45 * IN && p.left > left + 0.15 * width) after.push(p);
     });
-    const edges = cluster(after.map((p) => ({ key: p.left, p })), 0.3 * IN).map((c) => Math.min(...c.items.map((v) => v.p.left)));
+    let edges = cluster(after.map((p) => ({ key: p.left, p })), 0.3 * IN).map((c) => Math.min(...c.items.map((v) => v.p.left)));
     for (const c of cluster(after.map((p) => ({ key: p.right, p })), 4)) {            // a column set flush right
       const x = Math.min(...c.items.map((v) => v.p.left));
-      if (!edges.some((e) => Math.abs(e - x) < 0.3 * IN) && Math.max(...c.items.map((v) => v.p.left)) - x > 0.3 * IN) edges.push(x);
+      if (Math.max(...c.items.map((v) => v.p.left)) - x <= 0.3 * IN) continue;       // also flush left: already found
+      // its entries start at different places; where several happen to start together is not another column
+      edges = edges.filter((e) => e < x - 6);
+      edges.push(x);
     }
     edges.sort((a, b) => a - b);
     if (!edges.length) continue;
