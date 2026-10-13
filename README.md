@@ -1,9 +1,17 @@
 # grammateus
 
+> ὁ δὲ εἶπεν αὐτοῖς· Διὰ τοῦτο πᾶς γραμματεὺς μαθητευθεὶς τῇ βασιλείᾳ τῶν οὐρανῶν ὅμοιός ἐστιν ἀνθρώπῳ οἰκοδεσπότῃ ὅστις ἐκβάλλει ἐκ τοῦ θησαυροῦ αὐτοῦ καινὰ καὶ παλαιά.
+>
+> Then said he unto them, Therefore every scribe which is instructed unto the kingdom of heaven is like unto a man that is an householder, which bringeth forth out of his treasure things new and old.
+>
+> — Matthew 13:52 (Greek: SBLGNT; English: KJV)
+
+*Grammateus* (γραμματεύς) is the Greek word for a scribe.
+
 Makes a folded, stapled Sunday bulletin as a print-ready PDF. It is built for one kind of document and tries to do that one well.
 
-Status: early. The editing screen and the page layout work; the Windows installer is
-built automatically but has not yet been tried on a real Windows computer.
+Status: early, and in use for testing. The editing screen, the page layout and the
+Windows installer all work on Windows 10.
 
 ## What it does
 
