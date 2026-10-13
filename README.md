@@ -90,7 +90,7 @@ contain licensed hymn music and people's names.
 | `src/impose.mjs` | Page order for folding, for printers that cannot do it themselves |
 | `electron/` | The desktop program: window, menus, opening and saving files |
 | `examples/example.bulletin` | The bulletin a new one starts from (written by `tools/make_example.py`) |
-| `build/` | The program's icon (drawn by `tools/make_icon.py`) |
+| `build/` | The program's icon: a gold cross in a ring on purple. The `.svg` files are the originals; `icon.png` and `icon.ico` are made from them |
 | `tools/` | Importers for old bulletins and development scripts |
 
 The bundled font is EB Garamond, under the SIL Open Font License

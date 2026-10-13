@@ -11,6 +11,10 @@
 <div id="ui">
   <header id="bar">
     <button id="toggle" title="Show or hide the outline on the left" aria-pressed="true">☰</button>
+    <svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
+      <rect width="100" height="100" rx="20" fill="#66023C"/>
+      <path transform="translate(50 50) scale(0.96)" fill="#D9B46A" d="M-5,-5 L-11,-28 L11,-28 L5,-5 L28,-11 L28,11 L5,5 L11,28 L-11,28 L-5,5 L-28,11 L-28,-11 Z"/>
+    </svg>
     <span class="brand">Grammateus</span>
     <button id="new" title="Start an empty bulletin">New</button>
     <button id="open" title="Open a bulletin file">Open…</button>
@@ -34,7 +38,16 @@
   <!-- shown over the screen while something slow is running, so it never looks frozen -->
   <div id="busy" hidden role="alertdialog" aria-live="polite" aria-busy="true">
     <div class="card">
-      <div class="spinner" aria-hidden="true"></div>
+      <!-- the cross stays still; only the quarter arc of the ring turns -->
+      <div class="spinner" aria-hidden="true">
+        <svg viewBox="-50 -50 100 100">
+          <g class="ring">
+            <circle class="track" r="41" fill="none" stroke="currentColor" stroke-width="6"/>
+            <circle class="arc" r="41" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-dasharray="64.4 193.2"/>
+          </g>
+          <path fill="currentColor" d="M-5,-5 L-11,-28 L11,-28 L5,-5 L28,-11 L28,11 L5,5 L11,28 L-11,28 L-5,5 L-28,11 L-28,-11 Z"/>
+        </svg>
+      </div>
       <div class="what">
         <div id="busytext">Working…</div>
         <progress id="busybar" max="100"></progress>

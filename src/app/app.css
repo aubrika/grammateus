@@ -9,6 +9,7 @@ body { font-family: var(--ui); font-size: 14px; color: var(--ink); background: #
 #ui { display: flex; flex-direction: column; height: 100vh; }
 
 #bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fff; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+#bar .mark { width: 22px; height: 22px; flex: none; }
 #bar .brand { font-weight: 700; margin-right: 8px; }
 #bar .sep { flex: 0 0 12px; }
 #bar .sheets { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
@@ -84,16 +85,25 @@ main.no-outline #outline { display: none; }
 #shown [data-index].on, #shown .page[data-part].on { outline: 5px solid rgba(31, 95, 168, 0.55); outline-offset: 2px; }
 #shown [data-index] { cursor: pointer; }
 
-#busy { position: fixed; inset: 0; background: rgba(29, 36, 51, 0.35); display: flex; align-items: center; justify-content: center; z-index: 10; }
+#busy { position: fixed; inset: 0; background: rgba(42, 1, 25, 0.55); display: flex; align-items: center; justify-content: center; z-index: 10; }
 #busy[hidden] { display: none; }
 #busy .card { background: #fff; border-radius: 10px; padding: 20px 24px; min-width: 380px; max-width: 520px; display: flex; gap: 18px; align-items: center;
               box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); }
-#busy .spinner { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 4px solid #d5d9e2; border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { #busy .spinner { animation-duration: 4s; } }
+#busy .spinner { width: 84px; height: 84px; flex: none; border-radius: 17px; background: #66023C; color: #D9B46A; display: grid; place-items: center; }
+#busy .spinner svg { width: 68px; height: 68px; overflow: visible; }
+#busy .spinner .track { opacity: 0.22; }
+#busy .spinner .arc { transform-box: fill-box; transform-origin: center; animation: spin 1.1s linear infinite; }
+@keyframes spin { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
+@keyframes breathe { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+/* for people who have asked their computer for less movement: the ring fades in and out instead of turning */
+@media (prefers-reduced-motion: reduce) {
+  #busy .spinner .arc { animation: none; stroke-dasharray: none; }
+  #busy .spinner .ring { animation: breathe 1.8s ease-in-out infinite; }
+  #busy .spinner .track { display: none; }
+}
 #busy .what { flex: 1; }
 #busytext { font-weight: 600; margin-bottom: 8px; }
-#busybar { width: 100%; height: 10px; }
+#busybar { width: 100%; height: 10px; accent-color: #66023C; }
 #busypct { color: var(--muted); font-size: 13px; margin-top: 4px; min-height: 1.2em; }
 
 /* True-size pages: off screen while editing, the only thing present when printing. */

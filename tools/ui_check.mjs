@@ -159,6 +159,13 @@ try {
   // saved file round-trips
   console.log("save and reopen gives the same pages:", await ev(`(async () => { const text = window.grammateus.serialise(); const n = window.grammateus.report().pages; window.grammateus.load(text, 'x.bulletin'); await new Promise(r => setTimeout(r, 2500)); return window.grammateus.report().pages === n && !window.grammateus.isDirty(); })()`));
 
+  // the progress panel, as it looks part of the way through an import
+  await ev(`(() => { document.getElementById('busy').hidden = false; document.getElementById('busytext').textContent = 'Reading page 7 of 16…'; document.getElementById('busybar').value = 42; document.getElementById('busypct').textContent = '42% done'; })()`);
+  await sleep(300);
+  await shot("5-busy.png");
+  console.log("spinner arc turning:", await ev("getComputedStyle(document.querySelector('#busy .arc')).animationName"));
+  await ev("document.getElementById('busy').hidden = true");
+
   const pdf = await send("Page.printToPDF", { printBackground: true, preferCSSPageSize: true, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0 });
   await writeFile(join(outDir, "from-editor.pdf"), Buffer.from(pdf.result.data, "base64"));
   console.log("errors on the page:", errors.length ? errors : "none");

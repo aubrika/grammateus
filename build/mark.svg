@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100" width="96" height="96">
+  <title>Mark only, transparent background. Inherits color (default gold).</title>
+  <g fill="currentColor" color="#D9B46A">
+    <path d="M-5,-5 L-11,-28 L11,-28 L5,-5 L28,-11 L28,11 L5,5 L11,28 L-11,28 L-5,5 L-28,11 L-28,-11 Z"/>
+    <circle r="41" fill="none" stroke="currentColor" stroke-width="6"/>
+  </g>
+</svg>
