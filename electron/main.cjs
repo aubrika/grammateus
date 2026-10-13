@@ -21,6 +21,7 @@ function menu() {
     { label: "&File", submenu: [
       { label: "New", accelerator: "CmdOrCtrl+N", click: () => send("new") },
       { label: "Open…", accelerator: "CmdOrCtrl+O", click: () => send("open") },
+      { label: "Import a bulletin PDF…", click: () => send("import") },
       { type: "separator" },
       { label: "Save", accelerator: "CmdOrCtrl+S", click: () => send("save") },
       { label: "Save as…", accelerator: "CmdOrCtrl+Shift+S", click: () => send("saveas") },
@@ -104,13 +105,19 @@ ipcMain.handle("save", async (_event, text, asNew, suggested) => {
   return path.basename(target);
 });
 
-ipcMain.handle("pdf", async (_event, suggested) => {
+ipcMain.handle("pdf", async (_event, suggested, bulletin) => {
   const picked = await dialog.showSaveDialog(win, {
     defaultPath: currentPath ? path.join(path.dirname(currentPath), suggested) : suggested,
     filters: [{ name: "PDF", extensions: ["pdf"] }],
   });
   if (picked.canceled || !picked.filePath) return null;
-  const data = await win.webContents.printToPDF({ printBackground: true, preferCSSPageSize: true, margins: { marginType: "none" } });
+  let data = await win.webContents.printToPDF({ printBackground: true, preferCSSPageSize: true, margins: { marginType: "none" } });
+  // keep an editable copy of the bulletin inside the PDF, so the PDF can be opened again later;
+  // if that fails for any reason the plain PDF is still written
+  try {
+    const { embedBulletin } = await import("../src/pdf_embed.mjs");
+    data = Buffer.from(await embedBulletin(data, bulletin));
+  } catch { /* the PDF itself is what matters */ }
   await fs.writeFile(picked.filePath, data);
   return picked.filePath;
 });

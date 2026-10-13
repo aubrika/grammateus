@@ -12,6 +12,7 @@
     <span class="brand">Grammateus</span>
     <button id="new" title="Start an empty bulletin">New</button>
     <button id="open" title="Open a bulletin file">Open…</button>
+    <button id="import" title="Make an editable bulletin from a finished bulletin PDF">Import PDF…</button>
     <button id="save" title="Save this bulletin">Save</button>
     <button id="saveas" title="Save a copy under a new name, for example for next Sunday">Save as…</button>
     <button id="undo" title="Undo the last change (Ctrl+Z)">Undo</button>
@@ -33,6 +34,7 @@
 <div id="pages"></div>
 <input type="file" id="pickfile" accept=".bulletin,.json" hidden>
 <input type="file" id="pickimage" accept="image/*" hidden>
+<input type="file" id="pickpdf" accept="application/pdf,.pdf" hidden>
 <script type="module" src="app.js"></script>
 </body>
 </html>

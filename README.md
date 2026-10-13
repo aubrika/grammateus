@@ -27,6 +27,13 @@ built automatically but has not yet been tried on a real Windows computer.
   on every computer. A church can choose another font it has installed.
 - **Make PDF** writes letter-size pages in reading order, ready for a copier that
   folds and staples.
+- **Import a bulletin PDF.** A finished bulletin PDF can be turned back into an
+  editable bulletin: the service in order with its formatting, each side note tied to
+  its part, pictures and music in place, and the roster, columns and announcements on
+  the pages after the service. It works on bulletins laid out the way this program
+  lays them out.
+- **Its own PDFs reopen exactly.** Every PDF the program makes carries the editable
+  bulletin inside it, so a bulletin can be recovered from its PDF with nothing lost.
 
 ## Run it
 
@@ -50,8 +57,13 @@ node tools/ui_check.mjs examples/example.bulletin out/ui
 
 ## Bringing in old bulletins
 
-- `tools/import_pdf.py` rebuilds a `bulletin.json` from a finished bulletin PDF. This
-  is the better route: the PDF has the true layout.
+- **In the program:** Import PDF… (`src/app/import_pdf.js`). The PDF sent to the printer
+  has the true layout, so this is the route to use.
+- `tools/import_pdf.py` is the earlier command-line version of the same thing.
+
+What the PDF import cannot recover: a table whose cells the PDF stores as one run of
+text (it comes in as a paragraph), and where the lines between announcements were
+(they are placed before each bold title).
 
 Real bulletins are kept out of this repository (`samples/` is ignored): they
 contain licensed hymn music and people's names.
@@ -60,7 +72,7 @@ contain licensed hymn music and people's names.
 
 | Path | What |
 |---|---|
-| `src/app/` | The editing screen |
+| `src/app/` | The editing screen, and the PDF import |
 | `src/renderer/layout.js` | Puts a bulletin into pages |
 | `src/renderer/bulletin.css` | Page sizes, fonts and spacing |
 | `src/impose.mjs` | Page order for folding, for printers that cannot do it themselves |

@@ -12,7 +12,7 @@ import { homedir } from "node:os";
 const [docPath, outDir = "out/ui"] = process.argv.slice(2);
 const root = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
-                ".bulletin": "application/json", ".png": "image/png", ".ttf": "font/ttf" };
+                ".bulletin": "application/json", ".png": "image/png", ".ttf": "font/ttf", ".mjs": "text/javascript", ".wasm": "application/wasm" };
 const server = createServer(async (req, res) => {
   const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
   const file = path.startsWith("/doc/") ? resolve(dirname(docPath), path.slice(5)) : join(root, path);

@@ -13,6 +13,7 @@ let fileName = "";
 let dirty = false;
 let report = null;
 let problem = "";                            // stays on screen until the next successful action
+let notice = "";                             // what just happened; stays until the next change
 
 // ---------------------------------------------------------------- small helpers
 
@@ -29,6 +30,7 @@ function h(tag, props = {}, ...children) {
 
 function changed(redrawOutline = true) {
   dirty = true;
+  notice = "";
   if (redrawOutline) drawOutline();
   schedulePreview();
   scheduleSnapshot();
@@ -438,7 +440,7 @@ function showStatus() {
   if (report.blankPages) parts.push(`${report.blankPages} blank ${report.blankPages === 1 ? "page" : "pages"} before the back cover`);
   if (report.crowdedSides.length) { status.className = "warn"; parts.push(`too many side notes on page ${report.crowdedSides.map((p) => p - 1).join(", ")}`); }
   parts.push(dirty ? "not saved" : "saved");
-  status.textContent = parts.join(" · ");
+  status.textContent = (notice ? `${notice} ` : "") + parts.join(" · ");
 }
 
 // ---------------------------------------------------------------- files
@@ -487,10 +489,85 @@ async function saveFile(asNew) {
     }
     dirty = false;
     problem = "";
+    notice = `Saved as ${fileName}.`;
   } catch (e) {
     problem = `The bulletin could not be saved: ${e.message}`;
   }
   showStatus();
+}
+
+// ---------------------------------------------------------------- importing a finished PDF
+
+let pending = null;                          // a PDF that has been read and awaits the page numbers
+
+async function importPdf() {
+  if (!(await confirmDiscard())) return;
+  const input = $("pickpdf");
+  input.value = "";
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const say = (text) => { $("status").className = ""; $("status").textContent = text; };
+    try {
+      say("Opening the PDF…");
+      const { inspectPdf } = await import("./import_pdf.js");
+      const found = await inspectPdf(new Uint8Array(await file.arrayBuffer()), say);
+      if (found.embedded) {
+        load(JSON.stringify(found.embedded), "");
+        dirty = true;
+        problem = "";
+        notice = `${file.name} was made by Grammateus, so the bulletin stored inside it was opened.`;
+        showStatus();
+        return;
+      }
+      pending = { name: file.name, ...found };
+      problem = "";
+      say(`${file.name}: ${pending.count} pages read. Check the page numbers, then press Import.`);
+      importForm();
+    } catch (e) {
+      pending = null;
+      problem = `The PDF could not be read: ${e.message}`;
+      showStatus();
+    }
+  };
+  input.click();
+}
+
+function importForm() {
+  const form = $("form");
+  form.replaceChildren();
+  const number = (value) => h("input", { type: "number", min: 1, max: pending.count, value });
+  const first = number(pending.first), last = number(pending.last);
+  const go = h("button", { class: "primary" }, "Import");
+  go.addEventListener("click", async () => {
+    const a = parseInt(first.value, 10), b = parseInt(last.value, 10);
+    if (!(a >= 1 && b >= a && b <= pending.count)) { problem = "The service pages must be in order and within the PDF."; showStatus(); return; }
+    const say = (text) => { $("status").className = ""; $("status").textContent = text; };
+    try {
+      go.disabled = true;
+      const { buildBulletin } = await import("./import_pdf.js");
+      const made = buildBulletin(pending, a, b, say);
+      const from = pending.name;
+      pending = null;
+      load(JSON.stringify(made), "");
+      dirty = true;                             // it exists only on screen until it is saved
+      problem = "";
+      notice = `Imported from ${from}. Look it over, then save it.`;
+      showStatus();
+    } catch (e) {
+      go.disabled = false;
+      problem = `The PDF could not be imported: ${e.message}`;
+      showStatus();
+    }
+  });
+  form.append(h("h1", {}, "Import a bulletin PDF"),
+    h("p", { class: "hint" }, `${pending.name} has ${pending.count} pages. The program works out the parts from where they sit on the page. ` +
+      "Page 1 is taken as the cover, the page after it as the welcome page, and the last page as the back cover."),
+    h("label", {}, "First page of the service"), first,
+    h("label", {}, "Last page of the service"), last,
+    h("p", { class: "hint" }, "Pages between the service and the back cover become extra pages. " +
+      "Importing works best on bulletins laid out like this program's own: a main column with a side column of notes."),
+    h("div", { class: "tools" }, go, h("button", { onclick: () => { pending = null; drawForm(); showStatus(); } }, "Cancel")));
 }
 
 function suggestedName() {
@@ -503,8 +580,8 @@ async function makePdf() {
   if (problem) return;
   try {
     if (desk) {
-      const where = await desk.pdf(suggestedName().replace(/\.bulletin$/, ".pdf"));
-      if (where) { problem = ""; $("status").className = ""; $("status").textContent = `PDF saved: ${where}`; }
+      const where = await desk.pdf(suggestedName().replace(/\.bulletin$/, ".pdf"), serialise());
+      if (where) { problem = ""; notice = `PDF saved: ${where}.`; showStatus(); }
     } else {
       window.print();
     }
@@ -525,6 +602,7 @@ async function startNew() {
 }
 $("new").addEventListener("click", async () => { if (await confirmDiscard()) startNew(); });
 $("open").addEventListener("click", openFile);
+$("import").addEventListener("click", importPdf);
 $("save").addEventListener("click", () => saveFile(false));
 $("saveas").addEventListener("click", () => saveFile(true));
 $("pdf").addEventListener("click", makePdf);
@@ -541,7 +619,7 @@ document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && !typing && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
   if ((e.ctrlKey || e.metaKey) && !typing && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); }
 });
-if (desk) desk.onMenu((what) => ({ new: () => $("new").click(), open: openFile, save: () => saveFile(false), saveas: () => saveFile(true), pdf: makePdf }[what]?.()));
+if (desk) desk.onMenu((what) => ({ new: () => $("new").click(), open: openFile, import: importPdf, save: () => saveFile(false), saveas: () => saveFile(true), pdf: makePdf }[what]?.()));
 
 // For tests and for the desktop program's "is it safe to close" question.
 window.grammateus = { load, serialise, isDirty: () => dirty, report: () => report, select, undo, redo };

@@ -13,6 +13,7 @@ import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { resolve, extname, basename, dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { impose } from "../src/impose.mjs";
+import { embedBulletin } from "../src/pdf_embed.mjs";
 
 const [docPath, outDir = "out"] = process.argv.slice(2);
 if (!docPath) { console.error("usage: node tools/make_pdf.mjs <bulletin.json> [out-dir]"); process.exit(2); }
@@ -65,7 +66,10 @@ try {
 
   const pdf = await send("Page.printToPDF", { printBackground: true, preferCSSPageSize: true,
     marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0 });
-  const reading = Buffer.from(pdf.result.data, "base64");
+  let reading = Buffer.from(pdf.result.data, "base64");
+  const source = await readFile(docPath, "utf8");
+  // a single-file bulletin (pictures inside) is stored in the PDF, as the desktop program does
+  if (Object.keys(JSON.parse(source).images || {}).length) reading = Buffer.from(await embedBulletin(reading, source));
   await mkdir(outDir, { recursive: true });
   const name = basename(dirname(resolve(docPath)));
   await writeFile(join(outDir, `${name}-reading.pdf`), reading);
