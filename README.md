@@ -38,7 +38,7 @@ built automatically but has not yet been tried on a real Windows computer.
 - **Make PDF** writes letter-size pages in reading order, ready for a copier that
   folds and staples.
 - **Import a bulletin PDF.** A finished bulletin PDF can be turned back into an
-  editable bulletin: the service in order with its formatting, each side note tied to
+  editable bulletin in one step: the service in order with its formatting, each side note tied to
   its part, pictures and music in place, and the roster, columns and announcements on
   the pages after the service. It works on bulletins laid out the way this program
   lays them out.

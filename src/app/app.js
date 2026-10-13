@@ -584,7 +584,8 @@ async function saveFile(asNew) {
 
 // ---------------------------------------------------------------- importing a finished PDF
 
-let pending = null;                          // a PDF that has been read and awaits the page numbers
+// The PDF is read and turned into a bulletin in one go. The program decides for itself which
+// pages are the service; everything it makes can be changed afterwards.
 
 async function importPdf() {
   if (!(await confirmDiscard())) return;
@@ -595,7 +596,7 @@ async function importPdf() {
     if (!file) return;
     try {
       await busy("Opening the PDF…", 0);
-      const { inspectPdf } = await import("./import_pdf.js");
+      const { inspectPdf, buildBulletin } = await import("./import_pdf.js");
       const found = await inspectPdf(new Uint8Array(await file.arrayBuffer()), busy);
       if (found.embedded) {
         load(JSON.stringify(found.embedded), "");
@@ -605,61 +606,23 @@ async function importPdf() {
         showStatus();
         return;
       }
-      pending = { name: file.name, ...found };
+      await busy("Rebuilding the bulletin…", 0.6);
+      const made = await buildBulletin(found, found.first, found.last, busy);
+      load(JSON.stringify(made), "");
+      await busy("Laying out the pages…", 1);
+      await updatePreview();
+      dirty = true;                             // it exists only on screen until it is saved
       problem = "";
-      $("status").className = "";
-      $("status").textContent = `${file.name}: ${pending.count} pages read. Check the page numbers, then press Import.`;
-      importForm();
+      notice = `Imported all ${found.count} pages of ${file.name}. Look it over, then save it.`;
+      showStatus();
     } catch (e) {
-      pending = null;
-      problem = `The PDF could not be read: ${e.message}`;
+      problem = `The PDF could not be imported: ${e.message}`;
       showStatus();
     } finally {
       idle();
     }
   };
   input.click();
-}
-
-function importForm() {
-  const form = $("form");
-  form.replaceChildren();
-  const number = (value) => h("input", { type: "number", min: 1, max: pending.count, value });
-  const first = number(pending.first), last = number(pending.last);
-  const go = h("button", { class: "primary" }, "Import");
-  go.addEventListener("click", async () => {
-    const a = parseInt(first.value, 10), b = parseInt(last.value, 10);
-    if (!(a >= 1 && b >= a && b <= pending.count)) { problem = "The service pages must be in order and within the PDF."; showStatus(); return; }
-    try {
-      go.disabled = true;
-      await busy("Rebuilding the bulletin…", 0.6);
-      const { buildBulletin } = await import("./import_pdf.js");
-      const made = await buildBulletin(pending, a, b, busy);
-      const from = pending.name;
-      pending = null;
-      load(JSON.stringify(made), "");
-      await busy("Laying out the pages…", 1);
-      await updatePreview();
-      dirty = true;                             // it exists only on screen until it is saved
-      problem = "";
-      notice = `Imported from ${from}. Look it over, then save it.`;
-      showStatus();
-    } catch (e) {
-      go.disabled = false;
-      problem = `The PDF could not be imported: ${e.message}`;
-      showStatus();
-    } finally {
-      idle();
-    }
-  });
-  form.append(h("h1", {}, "Import a bulletin PDF"),
-    h("p", { class: "hint" }, `${pending.name} has ${pending.count} pages. The program works out the parts from where they sit on the page. ` +
-      "Page 1 is taken as the cover, the page after it as the welcome page, and the last page as the back cover."),
-    h("label", {}, "First page of the service"), first,
-    h("label", {}, "Last page of the service"), last,
-    h("p", { class: "hint" }, "Pages between the service and the back cover become extra pages. " +
-      "Importing works best on bulletins laid out like this program's own: a main column with a side column of notes."),
-    h("div", { class: "tools" }, go, h("button", { onclick: () => { pending = null; drawForm(); showStatus(); } }, "Cancel")));
 }
 
 // ---------------------------------------------------------------- enlarging the text to fill the sheets

@@ -66,9 +66,9 @@ try {
   const { nodeId } = (await send("DOM.querySelector", { nodeId: docRoot.nodeId, selector: "#pickpdf" })).result;
   await send("DOM.setFileInputFiles", { nodeId, files: [visiblePdf] });
   await ev("document.getElementById('pickpdf').dispatchEvent(new Event('change'))");
-  const asked = await until("document.querySelector('#form h1')?.textContent === 'Import a bulletin PDF' || document.getElementById('status').className === 'warn' || /made by Grammateus/.test(document.getElementById('status').textContent)");
+  const asked = await until("/^Imported all/.test(document.getElementById('status').textContent) || document.getElementById('status').className === 'warn' || /made by Grammateus/.test(document.getElementById('status').textContent)");
   await sleep(2500);
-  await progressSeen("progress panel while reading:");
+  await progressSeen("progress panel during the import:");
   console.log("panel hidden again:", await ev("document.getElementById('busy').hidden"));
   console.log("after reading:", await ev("document.getElementById('status').textContent"));
   if (await ev("/made by Grammateus/.test(document.getElementById('status').textContent)")) {
@@ -77,14 +77,8 @@ try {
     process.exitCode = 0;
     throw Object.assign(new Error("done"), { done: true });
   }
-  console.log("suggested service pages:", await ev("[...document.querySelectorAll('#form input[type=number]')].map(i => i.value).join(' to ')"));
-  await shot("1-page-numbers.png");
-  if (!asked || await ev("document.getElementById('status').className === 'warn'")) throw new Error("the PDF was not read");
-
-  await ev("document.querySelector('#form button.primary').click()");
-  await until("document.querySelector('#form h1')?.textContent === 'Cover' || document.getElementById('status').className === 'warn'");
-  await sleep(3500);
-  await progressSeen("progress panel while importing:");
+  if (!asked || await ev("document.getElementById('status').className === 'warn'")) throw new Error("the PDF was not imported");
+  console.log("no second step: the form shows", await ev("document.querySelector('#form h1')?.textContent"));
   console.log("panel hidden again:", await ev("document.getElementById('busy').hidden"));
   console.log("after import:", await ev("document.getElementById('status').textContent"));
   const summary = await ev(`(() => { const d = JSON.parse(window.grammateus.serialise()); const kinds = (list) => list.reduce((k, b) => (k[b.type] = (k[b.type] || 0) + 1, k), {});
