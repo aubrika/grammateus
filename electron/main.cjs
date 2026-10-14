@@ -106,6 +106,8 @@ function menu() {
 // on the downloads page and offers to open it.
 
 const DOWNLOADS = "https://github.com/aubrika/grammateus-releases/releases/latest";
+// latest.yml and latest-linux.yml, and the block maps of each Windows installer, live here
+const UPDATES = "https://raw.githubusercontent.com/aubrika/grammateus-releases/main/updates";
 const replacesItself = process.platform === "win32" || (process.platform === "linux" && !!process.env.APPIMAGE);
 
 let updater = null;
@@ -128,7 +130,27 @@ function setUpUpdates() {
   if (!app.isPackaged) return;             // only the installed program updates itself
   setInterval(() => { if (!busyUpdating()) checkForUpdate(false); }, RECHECK);
   if (!replacesItself) { checkForUpdate(false); return; }
-  try { updater = require("electron-updater").autoUpdater; } catch { return; }
+  try {
+    updater = require("electron-updater").autoUpdater;
+    // Only the parts of the new installer that differ from the installed one are downloaded.
+    // That needs a "block map" of both installers; the library looks for them beside the
+    // installer on the Releases page, and here they are kept in the updates folder instead,
+    // so that page lists only files people download.
+    const { GenericProvider } = require("electron-updater/out/providers/GenericProvider");
+    class UpdatesFolder extends GenericProvider {
+      getBlockMapFiles(installerUrl, oldVersion, newVersion) {
+        const name = decodeURIComponent(installerUrl.pathname.split("/").pop());
+        const map = (version) => new URL(`${UPDATES}/${name.split(newVersion).join(version)}.blockmap`);
+        return [map(oldVersion), map(newVersion)];
+      }
+      // the installers are served from GitHub's file storage, which answers one range of
+      // bytes per request, as the library's own GitHub support also assumes
+      get isUseMultipleRangeRequest() { return false; }
+    }
+    updater.setFeedURL({ provider: "custom", updateProvider: UpdatesFolder, url: UPDATES });
+    // the library's own notes, including how much of an update it downloaded, go to the log
+    updater.logger = { info: (m) => log("updater:", m), warn: (m) => log("updater (warning):", m), error: (m) => log("updater (error):", m), debug: () => {} };
+  } catch (error) { log("updates are off:", error?.message || error); return; }
   updater.autoDownload = true;
   updater.autoInstallOnAppQuit = false;    // done by hand when the window closes, see createWindow
   const answer = (message, detail) => { if (asked && win) dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "Grammateus", message, detail }); asked = false; };

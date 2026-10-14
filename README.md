@@ -89,7 +89,9 @@ tag is pushed: set the version in `package.json`, then
 To publish a version for everyone, copy only the installers (`.exe`, `.dmg`, `.deb`,
 `.AppImage`) to a release of `aubrika/grammateus-releases`, then put that release's
 `latest.yml` and `latest-linux.yml` in its `updates/` folder with each file name replaced
-by the full download address of that file. Installed copies read those two files.
+by the full download address of that file, together with the Windows installer's
+`.blockmap` (keep the old ones). Installed copies read those files; the block maps let an
+update download only the parts of the new installer that changed.
 
 For development without the desktop shell, the page-making script needs Chromium:
 
