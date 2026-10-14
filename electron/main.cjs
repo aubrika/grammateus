@@ -3,6 +3,7 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs/promises");
+const fsSync = require("node:fs");
 const { pathToFileURL } = require("node:url");
 
 // The screen is served from inside the program under app://, which lets it load its
@@ -13,9 +14,49 @@ protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: t
 let win = null;
 let currentPath = null;
 let closing = false;
-let startFile = process.argv.slice(1).find((a) => /\.bulletin$/i.test(a)) || null;
+const isBulletin = (a) => /\.bulletin$/i.test(a);
+let startFile = process.argv.slice(1).find(isBulletin) || null;
+let pendingFile = null;                    // a bulletin opened from outside while the window is up
+
+// ---------------------------------------------------------------- the log
+//
+// A short record of what the program did, kept beside its settings, so that if it ever
+// hangs or fails on someone's computer there is something to look at afterwards.
+// Help > Show the log file finds it.
+
+const logFile = () => path.join(app.getPath("userData"), "grammateus.log");
+function log(...words) {
+  try {
+    const file = logFile();
+    if (fsSync.existsSync(file) && fsSync.statSync(file).size > 1_000_000) fsSync.renameSync(file, `${file}.old`);
+    fsSync.appendFileSync(file, `${new Date().toISOString()}  ${words.join(" ")}\n`);
+  } catch { /* a log that cannot be written must never stop the program */ }
+}
+process.on("uncaughtException", (error) => log("error in the program:", error?.stack || error));
+
+// ---------------------------------------------------------------- one copy at a time
+//
+// Opening Grammateus again, or double-clicking a bulletin, while it is already running
+// brings the open window forward (and offers to open that bulletin there) instead of
+// starting a second copy.
+
+const primary = app.requestSingleInstanceLock();
+if (!primary) app.quit();
+app.on("second-instance", (_event, argv) => {
+  log("started again while open; using the open window", argv.slice(1).join(" "));
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  win.focus();
+  const file = argv.slice(1).find(isBulletin);
+  if (file) offerFile(file);
+});
 // on a Mac, a bulletin double-clicked in the Finder arrives this way instead
-app.on("open-file", (event, file) => { event.preventDefault(); if (!win) startFile = file; });
+app.on("open-file", (event, file) => { event.preventDefault(); if (win) offerFile(file); else startFile = file; });
+
+function offerFile(file) {
+  pendingFile = path.resolve(file);
+  win.webContents.send("openfile", path.basename(pendingFile));
+}
 
 const send = (what) => win && win.webContents.send("menu", what);
 
@@ -41,6 +82,7 @@ function menu() {
     { label: "&Help", submenu: [
       { label: "Check for a newer version…", click: () => checkForUpdate(true) },
       { type: "separator" },
+      { label: "Show the log file", click: () => { log("log shown"); shell.showItemInFolder(logFile()); } },
       { label: "About Grammateus", click: () => dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "About Grammateus",
           message: `Grammateus ${app.getVersion()}`, detail: "Makes a folded Sunday bulletin as a PDF ready for the printer." }) },
     ] },
@@ -83,6 +125,8 @@ function setUpUpdates() {
   updater.autoDownload = true;
   updater.autoInstallOnAppQuit = false;    // done by hand when the window closes, see createWindow
   const answer = (message, detail) => { if (asked && win) dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "Grammateus", message, detail }); asked = false; };
+  for (const name of ["checking-for-update", "update-available", "update-not-available", "update-downloaded", "error"])
+    updater.on(name, (info) => log("update:", name, info?.version || info?.message || ""));
   updater.on("update-available", (info) => {
     tellUpdate(`Version ${info.version} is being downloaded…`);
     answer(`Version ${info.version} is available.`, "It is being downloaded now. When it is ready, the top of the window will say so.");
@@ -141,7 +185,18 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true },
   });
   win.loadURL("app://local/src/app/index.html");
-  win.webContents.on("did-finish-load", () => { if (updateNote) win.webContents.send("update", updateNote); });
+  win.webContents.on("did-finish-load", () => { log("window ready"); if (updateNote) win.webContents.send("update", updateNote); });
+  // if the window stops answering, note it, and where the screen's code was at the time
+  win.on("unresponsive", async () => {
+    log("the window stopped answering");
+    try { log("it was busy in:", await win.webContents.mainFrame.collectJavaScriptCallStack()); } catch (error) { log("(where it was busy is not known:", error.message, ")"); }
+  });
+  win.on("responsive", () => log("the window answers again"));
+  win.webContents.on("render-process-gone", (_event, details) => log("the window's process ended:", details.reason, details.exitCode));
+  win.webContents.on("console-message", (event, ...legacy) => {
+    const level = event.level ?? legacy[0], message = event.message ?? legacy[1];
+    if (level === "error" || level === 3) log("error on the screen:", message);
+  });
   win.on("close", async (event) => {
     if (closing) return;
     event.preventDefault();
@@ -163,12 +218,24 @@ function createWindow() {
   win.on("closed", () => { win = null; });
 }
 
+// lets the log say where the screen's code was busy if the window stops answering
+app.commandLine.appendSwitch("enable-features", "DocumentPolicyIncludeJSCallStacksInCrashReports");
+
+app.on("child-process-gone", (_event, details) => log("a helper process ended:", details.type, details.reason, details.exitCode));
+
 app.whenReady().then(() => {
+  if (!primary) return;
+  log(`started: Grammateus ${app.getVersion()} on ${process.platform} ${process.getSystemVersion()}`, process.argv.slice(1).join(" "));
   const rootDir = app.getAppPath();
-  protocol.handle("app", (request) => {
+  protocol.handle("app", async (request) => {
     const file = path.normalize(path.join(rootDir, decodeURIComponent(new URL(request.url).pathname)));
     if (!file.startsWith(rootDir)) return new Response("", { status: 403 });
-    return net.fetch(pathToFileURL(file).toString());
+    const reply = await net.fetch(pathToFileURL(file).toString());
+    if (!file.endsWith(".html")) return reply;
+    const headers = new Headers(reply.headers);
+    headers.set("Content-Type", "text/html; charset=utf-8");
+    headers.set("Document-Policy", "include-js-call-stacks-in-crash-reports");
+    return new Response(reply.body, { status: reply.status, headers });
   });
   // the only permission the screen needs: to list the fonts installed on this computer
   session.defaultSession.setPermissionRequestHandler((_contents, permission, allow) => allow(permission === "local-fonts"));
@@ -183,6 +250,15 @@ app.on("window-all-closed", () => app.quit());
 // "Install now" on the screen: the same as closing the window, so unsaved work is asked about first
 ipcMain.handle("install", () => { if (win) win.close(); });
 ipcMain.handle("downloads", () => shell.openExternal(DOWNLOADS));
+
+// the screen agreed to open a bulletin that came from outside (see offerFile)
+ipcMain.handle("take", async () => {
+  if (!pendingFile) return null;
+  try {
+    currentPath = pendingFile;
+    return { text: await fs.readFile(currentPath, "utf8"), name: path.basename(currentPath) };
+  } catch { return null; } finally { pendingFile = null; }
+});
 
 ipcMain.handle("initial", async () => {
   if (!startFile) return null;

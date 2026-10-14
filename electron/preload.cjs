@@ -9,5 +9,7 @@ contextBridge.exposeInMainWorld("desk", {
   install: () => ipcRenderer.invoke("install"),
   downloads: () => ipcRenderer.invoke("downloads"),
   onUpdate: (handler) => ipcRenderer.on("update", (_event, text) => handler(text)),
+  take: () => ipcRenderer.invoke("take"),
+  onOpenFile: (handler) => ipcRenderer.on("openfile", (_event, name) => handler(name)),
   onMenu: (handler) => ipcRenderer.on("menu", (_event, what) => handler(what)),
 });

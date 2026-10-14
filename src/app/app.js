@@ -804,6 +804,13 @@ document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && !typing && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
   if ((e.ctrlKey || e.metaKey) && !typing && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); }
 });
+// a bulletin double-clicked while the program is already open comes to this window
+if (desk?.onOpenFile) desk.onOpenFile(async () => {
+  if (!(await confirmDiscard())) return;
+  const got = await desk.take();
+  if (got) load(got.text, got.name);
+});
+
 // news of a newer version stays in the top bar until the program is closed
 if (desk?.onUpdate) {
   desk.onUpdate((text) => {
