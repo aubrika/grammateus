@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("desk", {
   open: () => ipcRenderer.invoke("open"),
   save: (text, asNew, suggested) => ipcRenderer.invoke("save", text, asNew, suggested),
   pdf: (suggested, bulletin) => ipcRenderer.invoke("pdf", suggested, bulletin),
+  install: () => ipcRenderer.invoke("install"),
   onUpdate: (handler) => ipcRenderer.on("update", (_event, text) => handler(text)),
   onMenu: (handler) => ipcRenderer.on("menu", (_event, what) => handler(what)),
 });

@@ -50,8 +50,13 @@ function menu() {
 // If one does, it is fetched while the person works and installed when they close the
 // program. Nothing is ever installed in the middle of work, and if the check fails (no
 // internet, for example) the program simply carries on.
+//
+// The installing is done in plain sight: a small window shows its progress and then opens
+// the new version. Installing silently looked as if nothing was happening, and opening the
+// program again before it had finished made the installer close it.
 
 let updater = null;
+let updateReady = false;                   // a newer version is downloaded and waiting
 let updateNote = "";                       // what the screen shows about an update, if anything
 let asked = false;                         // the person chose "Check for a newer version"
 
@@ -64,14 +69,17 @@ function setUpUpdates() {
   if (!app.isPackaged) return;             // only the installed program updates itself
   try { updater = require("electron-updater").autoUpdater; } catch { return; }
   updater.autoDownload = true;
-  updater.autoInstallOnAppQuit = true;
+  updater.autoInstallOnAppQuit = false;    // done by hand when the window closes, see createWindow
   const answer = (message, detail) => { if (asked && win) dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "Grammateus", message, detail }); asked = false; };
   updater.on("update-available", (info) => {
     tellUpdate(`Version ${info.version} is being downloaded…`);
-    answer(`Version ${info.version} is available.`, "It is being downloaded now and will be installed when you close Grammateus.");
+    answer(`Version ${info.version} is available.`, "It is being downloaded now. When it is ready, the top of the window will say so.");
   });
   updater.on("download-progress", (p) => tellUpdate(`Downloading the new version: ${Math.round(p.percent)}%`));
-  updater.on("update-downloaded", (info) => tellUpdate(`Version ${info.version} is ready. It will be installed when you close Grammateus.`));
+  updater.on("update-downloaded", (info) => {
+    updateReady = true;
+    tellUpdate(`Version ${info.version} is ready. It is installed when you close Grammateus, and then the new version opens.`);
+  });
   updater.on("update-not-available", () => answer(`You have the newest version (${app.getVersion()}).`));
   updater.on("error", (error) => {
     if (updateNote.startsWith("Downloading") || updateNote.includes("being downloaded")) tellUpdate("The new version could not be downloaded. Grammateus will try again next time it starts.");
@@ -110,6 +118,10 @@ function createWindow() {
       if (response === 0) return;
     }
     closing = true;
+    if (updateReady && updater) {
+      // show the installer's progress window, and let it open the new version when it is done
+      try { updater.quitAndInstall(false, false); return; } catch { /* close as usual */ }
+    }
     win.close();
   });
   win.on("closed", () => { win = null; });
@@ -131,6 +143,9 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => app.quit());
+
+// "Install now" on the screen: the same as closing the window, so unsaved work is asked about first
+ipcMain.handle("install", () => { if (win) win.close(); });
 
 ipcMain.handle("initial", async () => {
   if (!startFile) return null;

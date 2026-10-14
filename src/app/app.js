@@ -776,7 +776,10 @@ document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && !typing && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); }
 });
 // news of a newer version stays in the top bar until the program is closed
-if (desk?.onUpdate) desk.onUpdate((text) => { $("update").textContent = text; $("update").hidden = !text; });
+if (desk?.onUpdate) {
+  desk.onUpdate((text) => { $("updatetext").textContent = text; $("update").hidden = !text; $("installnow").hidden = !/is ready/.test(text); });
+  $("installnow").addEventListener("click", () => desk.install());
+}
 if (desk) desk.onMenu((what) => ({ new: () => $("new").click(), open: openFile, import: importPdf, save: () => saveFile(false), saveas: () => saveFile(true), pdf: makePdf, fit: fitToSheets }[what]?.()));
 
 // For tests and for the desktop program's "is it safe to close" question.
