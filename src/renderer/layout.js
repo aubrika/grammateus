@@ -5,6 +5,8 @@
 // lines and anything else moves to the next page. A side note is tied to a block, so it
 // is drawn beside wherever that block ends up.
 
+import { PAPERS } from "../app/doc.js";
+
 const el = (tag, cls, html) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -350,6 +352,17 @@ export async function layoutBulletin(doc, pages, base = "") {
   const style = doc.style || {};
   pages.style.setProperty("--serif", `"${style.font || "EB Garamond"}", "EB Garamond", serif`);
   pages.style.setProperty("--note-size", `${style.noteSize || 12}pt`);
+  // the size of paper: the pages, the printed PDF, and everything drawn in proportion to them
+  const paper = PAPERS[style.paper] || PAPERS.letter;
+  pages.style.setProperty("--page-w", `${paper.w}in`);
+  pages.style.setProperty("--page-h", `${paper.h}in`);
+  pages.style.setProperty("--scale", String(paper.w / 8.5));
+  pages.style.setProperty("--vscale", String(paper.h / 11));
+  const sizeRule = pages.ownerDocument.getElementById("paper-size") ||
+    pages.ownerDocument.head.appendChild(Object.assign(pages.ownerDocument.createElement("style"), { id: "paper-size" }));
+  sizeRule.textContent = `@page { size: ${paper.w}in ${paper.h}in; margin: 0; }`;
+  // a white side column saves toner; the notes still sit in it
+  if (style.whiteSide) pages.style.setProperty("--grey", "#fff"); else pages.style.removeProperty("--grey");
   fonts = style.fonts || {};
   // without whole sheets, only the sheets asked for are added; the printer supplies any other blanks
   const sheetsFor = (count) => (doc.wholeSheets === false ? count / 4 : Math.ceil(count / 4) || 1) + Math.max(0, doc.extraSheets || 0);

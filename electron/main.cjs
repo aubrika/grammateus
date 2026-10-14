@@ -1,6 +1,6 @@
 // The desktop program: one window showing the editing screen, with real files and menus.
 
-const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const { pathToFileURL } = require("node:url");
@@ -13,12 +13,15 @@ protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: t
 let win = null;
 let currentPath = null;
 let closing = false;
-const startFile = process.argv.slice(1).find((a) => /\.bulletin$/i.test(a)) || null;
+let startFile = process.argv.slice(1).find((a) => /\.bulletin$/i.test(a)) || null;
+// on a Mac, a bulletin double-clicked in the Finder arrives this way instead
+app.on("open-file", (event, file) => { event.preventDefault(); if (!win) startFile = file; });
 
 const send = (what) => win && win.webContents.send("menu", what);
 
 function menu() {
   return Menu.buildFromTemplate([
+    ...(process.platform === "darwin" ? [{ role: "appMenu" }] : []),       // a Mac's first menu carries the program's name
     { label: "&File", submenu: [
       { label: "New", accelerator: "CmdOrCtrl+N", click: () => send("new") },
       { label: "Open…", accelerator: "CmdOrCtrl+O", click: () => send("open") },
@@ -54,6 +57,14 @@ function menu() {
 // The installing is done in plain sight: a small window shows its progress and then opens
 // the new version. Installing silently looked as if nothing was happening, and opening the
 // program again before it had finished made the installer close it.
+//
+// That is on Windows, and on Linux for the AppImage. A Mac only lets a program replace
+// itself when it is signed by a paid Apple developer account, and the .deb package belongs
+// to the system's package manager, so there the program only says that a newer version is
+// on the downloads page and offers to open it.
+
+const DOWNLOADS = "https://github.com/aubrika/grammateus-releases/releases/latest";
+const replacesItself = process.platform === "win32" || (process.platform === "linux" && !!process.env.APPIMAGE);
 
 let updater = null;
 let updateReady = false;                   // a newer version is downloaded and waiting
@@ -67,6 +78,7 @@ function tellUpdate(text) {
 
 function setUpUpdates() {
   if (!app.isPackaged) return;             // only the installed program updates itself
+  if (!replacesItself) { checkForUpdate(false); return; }
   try { updater = require("electron-updater").autoUpdater; } catch { return; }
   updater.autoDownload = true;
   updater.autoInstallOnAppQuit = false;    // done by hand when the window closes, see createWindow
@@ -88,7 +100,31 @@ function setUpUpdates() {
   checkForUpdate(false);
 }
 
+// "1.10.0" is newer than "1.9.2"
+const newer = (a, b) => {
+  const x = a.split(".").map(Number), y = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  return false;
+};
+
+async function checkDownloadsPage(byHand) {
+  const say = (message, detail) => byHand && win && dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "Grammateus", message, detail });
+  try {
+    const reply = await net.fetch("https://api.github.com/repos/aubrika/grammateus-releases/releases/latest",
+      { headers: { Accept: "application/vnd.github+json", "User-Agent": "Grammateus" } });
+    if (!reply.ok) throw new Error(`the downloads page answered ${reply.status}`);
+    const latest = String((await reply.json()).tag_name || "").replace(/^v/, "");
+    if (latest && newer(latest, app.getVersion())) {
+      tellUpdate(`Version ${latest} is available on the downloads page.`);
+      say(`Version ${latest} is available.`, "Press “Open the downloads page” at the top of the window to get it.");
+    } else say(`You have the newest version (${app.getVersion()}).`);
+  } catch (error) {
+    say("Grammateus could not check for a newer version.", `Check that this computer is connected to the internet, then try again.\n\n(${error.message})`);
+  }
+}
+
 function checkForUpdate(byHand) {
+  if (app.isPackaged && !replacesItself) { checkDownloadsPage(byHand); return; }
   if (!updater) {
     if (byHand) dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "Grammateus", message: "Only the installed program can check for a newer version." });
     return;
@@ -146,6 +182,7 @@ app.on("window-all-closed", () => app.quit());
 
 // "Install now" on the screen: the same as closing the window, so unsaved work is asked about first
 ipcMain.handle("install", () => { if (win) win.close(); });
+ipcMain.handle("downloads", () => shell.openExternal(DOWNLOADS));
 
 ipcMain.handle("initial", async () => {
   if (!startFile) return null;

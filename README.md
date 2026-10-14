@@ -10,10 +10,12 @@
 
 *Grammateus* (γραμματεύς) is the Greek word for a scribe.
 
-Makes a folded, stapled Sunday bulletin as a print-ready PDF. It is built for one kind of document and tries to do that one well.
+A tool for producing weekly church bulletins: folded, stapled booklets, made as a
+print-ready PDF. It is built for one kind of document and tries to do that one well.
 
 Status: early, and in use for testing. The editing screen, the page layout and the
-Windows installer all work on Windows 10.
+Windows installer all work on Windows 10. The Mac and Linux versions are built the same
+way but have not yet been tried on those systems.
 
 ## What it does
 
@@ -45,8 +47,12 @@ Windows installer all work on Windows 10.
 - **Any font.** A good open font comes with the program, so a bulletin looks the same
   on every computer. A church can choose another font it has installed: for the whole
   bulletin, for one kind of item (all headings, all side notes), or for a single item.
-- **Make PDF** writes letter-size pages in reading order, ready for a copier that
-  folds and staples.
+- **Make PDF** writes the pages in reading order, ready for a copier that folds and
+  staples.
+- **Paper sizes.** Letter pages (printed on 11 × 17 in sheets) by default; half letter,
+  half legal, A4 and A5 can be chosen under Design. Changing the size changes all the text
+  sizes in proportion, so the bulletin keeps its look.
+- **A white side column** can be chosen under Design, to save toner; it is grey by default.
 - **Import a bulletin PDF.** A finished bulletin PDF can be turned back into an
   editable bulletin in one step: the service in order with its formatting, each side note tied to
   its part, pictures and music in place, and the roster, columns and announcements on
@@ -55,7 +61,9 @@ Windows installer all work on Windows 10.
 - **It keeps itself up to date.** When the installed program starts, it asks the public
   downloads page (`aubrika/grammateus-releases`) whether a newer version exists. If so, it
   downloads it while you work and installs it when you close the program. Help → *Check for
-  a newer version…* does the same check by hand.
+  a newer version…* does the same check by hand. That is on Windows and with the Linux
+  AppImage; on a Mac and with the Linux `.deb` package it says a newer version is ready to
+  download and opens the downloads page.
 - **Its own PDFs reopen exactly.** Every PDF the program makes carries the editable
   bulletin inside it, so a bulletin can be recovered from its PDF with nothing lost.
 
@@ -69,10 +77,13 @@ npm start          # the desktop program
 npm test
 ```
 
-The Windows installer is on the repository's Releases page. It adds Grammateus to the
-Start menu. The workflow in `.github/workflows/build.yml` builds it on every push, and
-publishes it as a release when a tag is pushed: set the version in `package.json`,
-then `git tag v0.2.0 && git push origin v0.2.0`.
+The installers are on the repository's Releases page: for Windows (adds Grammateus to the
+Start menu), for Mac (a `.dmg` that runs on both Apple and Intel processors), and for
+Linux (an AppImage and a `.deb` package). The workflow in `.github/workflows/build.yml`
+builds each one on its own system on every push, and publishes them as a release when a
+tag is pushed: set the version in `package.json`, then
+`git tag v0.2.0 && git push origin v0.2.0`. `npm run dist`, `npm run dist:mac` and
+`npm run dist:linux` build one by hand.
 
 For development without the desktop shell, the page-making script needs Chromium:
 

@@ -8,7 +8,7 @@
 // Measurements are in points (72 to the inch), with y running down the page.
 
 import * as pdfjs from "../../node_modules/pdfjs-dist/build/pdf.mjs";
-import { normalize } from "./doc.js";
+import { PAPERS, normalize } from "./doc.js";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("../../node_modules/pdfjs-dist/build/pdf.worker.mjs", import.meta.url).href;
 
@@ -615,6 +615,9 @@ export async function buildBulletin({ pages, count }, first, last, progress = as
   doc.style.noteSize = Math.round(noteSizes * 2) / 2 || 12;
   if (last + 1 < count) doc.style.extraSize = Math.round(bodySize(pages.slice(last, count - 1)) * 2) / 2 || 14.5;
   await progress("Laying out the pages…", 1);
+  // the paper the PDF was made for, if it is one of the sizes the program knows
+  const paper = Object.entries(PAPERS).find(([, p]) => Math.abs(p.w * 72 - at(1).width) < 6 && Math.abs(p.h * 72 - at(1).height) < 6);
+  if (paper) doc.style.paper = paper[0];
   const made = normalize(doc);
   if (welcomeBlocks) Object.assign(made.parts[0], { blocks: strip(welcomeBlocks), size: Math.round(welcomeSize * 2) / 2 || 13 });
   return made;

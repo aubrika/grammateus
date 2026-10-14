@@ -2,7 +2,7 @@
 // in the middle, and a live preview of the pages on the right.
 
 import { layoutBulletin } from "../renderer/layout.js";
-import { BLOCK_NAMES, FONT_KINDS, addImage, cleanHtml, emptyBulletin, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "./doc.js";
+import { BLOCK_NAMES, FONT_KINDS, PAPERS, addImage, cleanHtml, emptyBulletin, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "./doc.js";
 
 const $ = (id) => document.getElementById(id);
 const desk = window.desk || null;            // provided by the desktop program; absent in a plain browser
@@ -335,17 +335,43 @@ function designForm(form) {
       "Any other font must be installed on the computer that makes the PDF. The size of the main text is set for each part."),
     ...fontField("Font for the whole bulletin", () => doc.style.font, (v) => (doc.style.font = v || "EB Garamond"), "EB Garamond"),
     ...sizeField("Size of the side notes (points)", () => doc.style.noteSize, (v) => (doc.style.noteSize = v), 7, 16),
+    checkbox("White side column, to save toner (the notes stay where they are)", !!doc.style.whiteSide,
+      (v) => { if (v) doc.style.whiteSide = true; else delete doc.style.whiteSide; }),
     h("h2", {}, "A different font for one kind of item"),
     h("p", { class: "hint" }, "Leave a box empty to use the bulletin's font. A single item can also be given its own font, where you edit it."),
     ...Object.entries(FONT_KINDS).flatMap(([kind, words]) => fontField(words.charAt(0).toUpperCase() + words.slice(1), () => fonts[kind],
       (v) => { if (v) fonts[kind] = v; else delete fonts[kind]; }, "the bulletin's font")),
     h("h2", {}, "Sheets of paper"),
+    h("label", {}, "Size of each page of the folded bulletin"), paperField(),
+    h("p", { class: "hint" }, "Each sheet is twice the page size and folded in half. When you change the size, " +
+      "all the text sizes change in proportion, so the pages look much the same; Undo puts them back."),
     checkbox("Add blank pages so the bulletin fills whole sheets (four pages to a sheet)", doc.wholeSheets, (v) => (doc.wholeSheets = v)),
     h("p", { class: "hint" }, "A folded bulletin is printed on whole sheets, so its page count must be a multiple of four. With this on, any blank pages " +
       "are placed just before the back cover, so the back cover is still the outside. Turn it off if your printer or copier adds the blanks itself."),
     h("div", { class: "tools" }, h("button", { onclick: fitToSheets }, "Enlarge text to fill the sheets (experimental)")),
     h("p", { class: "hint" }, "Makes all the text as large as it can be while the bulletin still fits on the sheets it already needs. " +
       "Pictures and music stay the same size. It takes a few seconds, and Undo puts the sizes back."));
+}
+
+// Changing the paper scales every text size by the change in page width, so the bulletin keeps its look.
+function paperField() {
+  const select = h("select", {}, ...Object.entries(PAPERS).map(([key, p]) =>
+    h("option", { value: key, selected: key === doc.style.paper }, `${p.name}, ${p.shown} (printed on ${p.sheet})`)));
+  select.addEventListener("change", () => {
+    const from = PAPERS[doc.style.paper], to = PAPERS[select.value];
+    const k = to.w / from.w, half = (v) => Math.max(5, Math.round(v * k * 2) / 2);
+    doc.style.paper = select.value;
+    doc.style.noteSize = half(doc.style.noteSize);
+    for (const part of doc.parts) {
+      part.size = half(part.size);
+      for (const b of part.blocks) if (b.size) b.size = half(b.size);
+    }
+    changed();
+    notice = `Pages are now ${to.name}, ${to.shown}, and the text sizes were changed to suit. Undo puts them back.`;
+    showStatus();
+    drawForm();
+  });
+  return select;
 }
 
 const ADDABLE = ["section", "heading", "text", "hymn", "image", "roster", "columns", "logos", "rule", "pagebreak"];
@@ -516,8 +542,9 @@ async function updatePreview() {
     const shown = $("shown");
     const keep = $("preview").scrollTop;
     shown.replaceChildren(...[...$("pages").children].map((p) => p.cloneNode(true)));
-    // the bulletin's font and note size are set on the true-size pages; the preview needs them too
-    for (const name of ["--serif", "--note-size"]) shown.style.setProperty(name, $("pages").style.getPropertyValue(name));
+    // the bulletin's font, note size, paper size and side colour are set on the true-size pages;
+    // the preview needs them too
+    shown.style.cssText = $("pages").style.cssText;
     $("preview").scrollTop = keep;
     highlight(false);
     problem = "";
@@ -779,8 +806,14 @@ document.addEventListener("keydown", (e) => {
 });
 // news of a newer version stays in the top bar until the program is closed
 if (desk?.onUpdate) {
-  desk.onUpdate((text) => { $("updatetext").textContent = text; $("update").hidden = !text; $("installnow").hidden = !/is ready/.test(text); });
+  desk.onUpdate((text) => {
+    $("updatetext").textContent = text;
+    $("update").hidden = !text;
+    $("installnow").hidden = !/is ready/.test(text);
+    $("getnew").hidden = !/downloads page/.test(text);
+  });
   $("installnow").addEventListener("click", () => desk.install());
+  $("getnew").addEventListener("click", () => desk.downloads());
 }
 if (desk) desk.onMenu((what) => ({ new: () => $("new").click(), open: openFile, import: importPdf, save: () => saveFile(false), saveas: () => saveFile(true), pdf: makePdf, fit: fitToSheets }[what]?.()));
 

@@ -1,5 +1,6 @@
-/* Page geometry follows the church's existing bulletin: letter-size pages, a 5.5 in
-   main column and a 2.5 in grey side column on the spine side of every service page. */
+/* Page geometry is drawn for letter-size pages (a 5.5 in main column and a 2.5 in grey side
+   column on the spine side of every service page) and scaled to other sizes of paper:
+   --scale for widths and --vscale for heights, both 1 on letter paper. */
 
 @font-face { font-family: "EB Garamond"; src: url("fonts/EBGaramond.ttf"); font-weight: 400 800; font-style: normal; }
 @font-face { font-family: "EB Garamond"; src: url("fonts/EBGaramond-Italic.ttf"); font-weight: 400 800; font-style: italic; }
@@ -9,17 +10,18 @@
 :root {
   --page-w: 8.5in;
   --page-h: 11in;
-  --edge: 0.25in;          /* outer margin, left and right */
-  --top: 0.5in;
-  --bottom: 0.6in;
-  --side-w: 2.5in;
-  --grey: #d9d9d9;
+  --scale: 1;
+  --vscale: 1;
+  --grey: #d9d9d9;         /* the side column; white when a bulletin saves toner */
   --dark: #7f7f7f;
   --serif: "EB Garamond", serif;   /* the bundled font; a bulletin may name another */
   --note-size: 12pt;
 }
 
 * { box-sizing: border-box; }
+/* set here, not on :root, so they follow a paper size set on the pages' container */
+.page { --edge: calc(0.25in * var(--scale)); --top: calc(0.5in * var(--vscale)); --bottom: calc(0.6in * var(--vscale));
+        --side-w: calc(2.5in * var(--scale)); }
 .page { position: relative; width: var(--page-w); height: var(--page-h); background: #fff; overflow: hidden;
         break-after: page; font-family: var(--serif); font-size: 15pt; line-height: 1.127; color: #000;
         font-variant-numeric: lining-nums; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -33,7 +35,7 @@
 .page.odd .main { left: calc(var(--edge) + var(--side-w)); }
 .page.even .main { left: var(--edge); padding: 0 0.07in 0 0.04in; }
 .page.even .side { right: var(--edge); }
-.page.extra .main { left: 0.5in; width: 7.5in; padding: 0; }
+.page.extra .main { left: calc(0.5in * var(--scale)); width: calc(var(--page-w) - 1in * var(--scale)); padding: 0; }
 .page.extra .main .heading { justify-content: center; font-variant: normal; font-size: 1.1em; }
 .main .text .gap { display: block; height: 0.4em; }
 .main .rule { border: 0; border-top: 1.5pt solid #000; margin: 5pt 0 0; }
@@ -42,8 +44,8 @@
 .main img.float { float: right; width: 34%; margin: 2pt 0 4pt 10pt; }
 .main img.float.left { float: left; margin: 2pt 10pt 4pt 0; }
 .main .text.center { text-align: center; }
-.main .logos { display: flex; align-items: center; justify-content: center; gap: 0.3in; flex-wrap: wrap; }
-.main .logos img { max-height: 1.2in; max-width: 3.3in; }
+.main .logos { display: flex; align-items: center; justify-content: center; gap: calc(0.3in * var(--scale)); flex-wrap: wrap; }
+.main .logos img { max-height: calc(1.2in * var(--scale)); max-width: calc(3.3in * var(--scale)); }
 /* a picture on the right stays within its own paragraph; one on the left (a small emblem
    beside a title) lets the paragraphs after it run alongside */
 .main .text:has(img.float:not(.left))::after { content: ""; display: block; clear: both; }
@@ -60,7 +62,7 @@
 .columns > div { min-width: 0; overflow-wrap: break-word; }
 .columns img.under { display: block; width: 55%; margin: 0.15in auto 0; }
 
-.page .folio { position: absolute; top: 10.5in; left: 0; right: 0; text-align: center; font-size: 12pt; line-height: 1; }
+.page .folio { position: absolute; top: calc(var(--page-h) - 0.5in * var(--vscale)); left: 0; right: 0; text-align: center; font-size: 12pt; line-height: 1; }
 
 /* Paragraphs are set 6pt apart; a heading sits directly on the text it introduces. */
 .main > * { margin: 6pt 0 0; }
@@ -98,14 +100,14 @@ sup { font-size: 0.62em; line-height: 0; vertical-align: super; }
 
 /* ---- cover ---- */
 .page.cover { background: var(--dark); color: #fff; text-align: center; }
-.cover .top { position: absolute; top: 0.3in; left: 0.5in; right: 0.5in; font-weight: 700; }
-.cover .top .title { font-size: 44pt; font-variant: small-caps; line-height: 1.05; }
-.cover .top .sunday { font-size: 24pt; font-variant: small-caps; margin-top: 0.08in; }
-.cover .top .date { font-size: 24pt; }
-.cover .art { position: absolute; top: 2.45in; height: 5.9in; left: 0; right: 0; background: #fff;
+.cover .top { position: absolute; top: calc(0.3in * var(--vscale)); left: calc(0.5in * var(--scale)); right: calc(0.5in * var(--scale)); font-weight: 700; }
+.cover .top .title { font-size: calc(44pt * var(--scale)); font-variant: small-caps; line-height: 1.05; }
+.cover .top .sunday { font-size: calc(24pt * var(--scale)); font-variant: small-caps; margin-top: 0.08in; }
+.cover .top .date { font-size: calc(24pt * var(--scale)); }
+.cover .art { position: absolute; top: calc(2.45in * var(--vscale)); height: calc(5.9in * var(--vscale)); left: 0; right: 0; background: #fff;
               display: flex; align-items: center; justify-content: center; }
 .cover .art img { max-width: 78%; max-height: 92%; }
-.cover .foot { position: absolute; bottom: 0.45in; left: 0.5in; right: 0.5in; font-weight: 700; font-size: 24pt; line-height: 1.15; }
+.cover .foot { position: absolute; bottom: calc(0.45in * var(--vscale)); left: calc(0.5in * var(--scale)); right: calc(0.5in * var(--scale)); font-weight: 700; font-size: calc(24pt * var(--scale)); line-height: 1.15; }
 
 /* measuring column: same width as the main column, off screen */
 #measure { position: absolute; left: -100in; top: 0; visibility: hidden; }

@@ -176,6 +176,23 @@ try {
     "| preview note size matches the pages:", await ev(`getComputedStyle(document.querySelector('#shown .side .note')).fontSize === getComputedStyle(document.querySelector('#pages .side .note')).fontSize`));
   await ev("document.getElementById('undo').click()"); await sleep(1500);
 
+  // other paper sizes, and a white side column
+  await ev(`document.querySelector('#outline .row.design').click()`); await sleep(400);
+  const pageInfo = `(() => { const p = document.querySelector('#pages .page'); const r = p.getBoundingClientRect(); return (r.width / 96).toFixed(2) + ' x ' + (r.height / 96).toFixed(2) + ' in, ' + window.grammateus.report().pages + ' pages, service text ' + JSON.parse(window.grammateus.serialise()).parts[1].size + ' pt'; })()`;
+  const letterInfo = await ev(pageInfo);
+  await ev(`(() => { const s = document.querySelector('#form select'); s.value = 'half-letter'; s.dispatchEvent(new Event('change', {bubbles:true})); })()`); await sleep(2500);
+  console.log("paper: letter", letterInfo, "→ half letter", await ev(pageInfo), "| print size:", await ev(`document.getElementById('paper-size').textContent`),
+    "| preview page width matches:", await ev(`document.querySelector('#shown .page').offsetWidth === document.querySelector('#pages .page').offsetWidth`));
+  console.log("  status:", await ev("document.getElementById('status').textContent.slice(0, 90)"));
+  await shot("7-half-letter.png");
+  const sideBg = `getComputedStyle(document.querySelector('#shown .side')).backgroundColor`;
+  const grey = await ev(sideBg);
+  await ev(`[...document.querySelectorAll('#form label.check')].find(l => l.textContent.includes('White side column')).querySelector('input').click()`); await sleep(1800);
+  console.log("side column:", grey, "→ with white chosen:", await ev(sideBg));
+  await ev("document.getElementById('undo').click()"); await sleep(1500);
+  await ev("document.getElementById('undo').click()"); await sleep(1800);
+  console.log("after two undos:", await ev(pageInfo), "| side:", await ev(sideBg));
+
   // the progress panel, as it looks part of the way through an import
   await ev(`(() => { document.getElementById('busy').hidden = false; document.getElementById('busytext').textContent = 'Reading page 7 of 16…'; document.getElementById('busybar').value = 42; document.getElementById('busypct').textContent = '42% done'; })()`);
   await sleep(300);

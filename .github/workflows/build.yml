@@ -18,11 +18,23 @@ jobs:
       - run: npm ci
       - run: npm test
 
-  windows-installer:
+  # One installer per operating system, each built on that system.
+  installers:
     needs: test
-    runs-on: windows-latest
-    permissions:
-      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            script: dist
+            name: windows
+          - os: macos-latest
+            script: dist:mac
+            name: mac
+          - os: ubuntu-latest
+            script: dist:linux
+            name: linux
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,22 +42,38 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: npm run dist
+      - run: npm run ${{ matrix.script }}
+      # the installers, and the files an installed copy reads to find and fetch an update
       - uses: actions/upload-artifact@v4
         with:
-          name: grammateus-windows-installer
+          name: grammateus-${{ matrix.name }}
           path: |
             dist/*.exe
-            dist/latest.yml
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.blockmap
+            dist/latest*.yml
           if-no-files-found: error
-      # Pushing a tag such as v0.2.0 publishes the installer on the Releases page. latest.yml
-      # and the .blockmap file are what an installed copy reads to find and fetch an update.
-      - name: Attach the installer to the release
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
+
+  # Pushing a tag such as v0.2.0 publishes every installer on the Releases page.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: installers
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: files
+          merge-multiple: true
+      - name: Attach the installers to the release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           version="${GITHUB_REF_NAME#v}"
+          ls -l files
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Grammateus ${version}" --generate-notes --prerelease
-          gh release upload "$GITHUB_REF_NAME" "dist/Grammateus-Setup-${version}.exe" "dist/Grammateus-Setup-${version}.exe.blockmap" dist/latest.yml --clobber
+          gh release upload "$GITHUB_REF_NAME" files/* --clobber

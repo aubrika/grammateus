@@ -13,6 +13,16 @@ export const FONT_KINDS = {
   roster: "lists with dotted lines", columns: "columns", cover: "the cover",
 };
 
+// Sizes of paper for the pages of the folded bulletin, in inches, with the sheet each pair of
+// pages is printed on. Letter is the default.
+export const PAPERS = {
+  letter: { name: "Letter", w: 8.5, h: 11, sheet: "11 × 17 in", shown: "8.5 × 11 in" },
+  "half-letter": { name: "Half letter", w: 5.5, h: 8.5, sheet: "letter paper", shown: "5.5 × 8.5 in" },
+  "half-legal": { name: "Half legal", w: 7, h: 8.5, sheet: "legal paper", shown: "7 × 8.5 in" },
+  a4: { name: "A4", w: 210 / 25.4, h: 297 / 25.4, sheet: "A3", shown: "210 × 297 mm" },
+  a5: { name: "A5", w: 148 / 25.4, h: 210 / 25.4, sheet: "A4", shown: "148 × 210 mm" },
+};
+
 export const BLOCK_NAMES = {
   section: "Section title",
   heading: "Heading",
@@ -62,7 +72,9 @@ export function normalize(doc) {
   // `fonts` holds a font for each kind of item ("heading", "text", "note" and so on); a kind
   // that is not listed uses the bulletin's font
   const fonts = Object.fromEntries(Object.entries(doc.style?.fonts || {}).filter(([, v]) => v));
-  doc.style = { font: doc.style?.font || "EB Garamond", noteSize: doc.style?.noteSize || 12, fonts };
+  const paper = PAPERS[doc.style?.paper] ? doc.style.paper : "letter";
+  doc.style = { font: doc.style?.font || "EB Garamond", noteSize: doc.style?.noteSize || 12, fonts, paper,
+                ...(doc.style?.whiteSide ? { whiteSide: true } : {}) };
   doc.wholeSheets = doc.wholeSheets !== false;
   doc.meta = { title: "", sunday: "", date: "", ...(doc.meta || {}) };
   doc.cover = { show: true, image: "", footer: [], ...(doc.cover || {}) };
