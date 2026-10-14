@@ -111,13 +111,16 @@ service = [
       "account anything as from ourselves; but our sufficiency is from God, <sup>6</sup>who also made us sufficient as servants "
       "of a new covenant, not of the letter but of the Spirit. For the letter kills, but the Spirit gives life."),
     T("The word of the Lord.<br><b>Thanks be to God.</b>"),
-    H("Gospel", True, ref="Luke 24:28–32", note="The assembly stands to hear the Gospel."),
-    T("<sup>28</sup>They came near to the village where they were going, and he acted like he would go further. "
-      "<sup>29</sup>They urged him, saying, \u201cStay with us, for it is almost evening, and the day is almost over.\u201d "
-      "He went in to stay with them. <sup>30</sup>When he had sat down at the table with them, he took the bread and gave "
-      "thanks. Breaking it, he gave it to them. <sup>31</sup>Their eyes were opened and they recognized him; then he "
-      "vanished out of their sight. <sup>32</sup>They said to one another, \u201cWeren\u2019t our hearts burning within us "
-      "while he spoke to us along the way, and while he opened the Scriptures to us?\u201d"),
+    H("Gospel", True, ref="Matthew 13:47–52",
+      note="The assembly stands to hear the Gospel. The \u201cscribe\u201d in verse 52 is, in Greek, <i>grammateus</i>, the word this program is named for."),
+    T("<sup>47</sup>\u201cAgain, the Kingdom of Heaven is like a dragnet that was cast into the sea and gathered some fish of "
+      "every kind, <sup>48</sup>which, when it was filled, fishermen drew up on the beach. They sat down and gathered the good "
+      "into containers, but the bad they threw away. <sup>49</sup>So it will be in the end of the world. The angels will come "
+      "and separate the wicked from among the righteous, <sup>50</sup>and will cast them into the furnace of fire. There will "
+      "be weeping and gnashing of teeth.\u201d"),
+    T("<sup>51</sup>Jesus said to them, \u201cHave you understood all these things?\u201d They answered him, \u201cYes, Lord.\u201d "
+      "<sup>52</sup>He said to them, \u201cTherefore every scribe who has been made a disciple in the Kingdom of Heaven is like a "
+      "man who is a householder, who brings out of his treasure new and old things.\u201d"),
     T("The Gospel of the Lord.<br><b>Praise to you, O Christ.</b>"),
     H("Sermon"),
     T("<i>A time of silence follows the sermon.</i>"),
