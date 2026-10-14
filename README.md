@@ -104,7 +104,7 @@ contain licensed hymn music and people's names.
 | `src/impose.mjs` | Page order for folding, for printers that cannot do it themselves |
 | `electron/` | The desktop program: window, menus, opening and saving files |
 | `examples/example.bulletin` | The bulletin a new one starts from (written by `tools/make_example.py`) |
-| `build/` | The program's icon: a gold cross in a ring on purple. The `.svg` files are the originals; `icon.png` and `icon.ico` are made from them |
+| `build/` | The program's icon: a gold cross in a ring on purple. The `.svg` files are the originals; `icon.png` and `icon.ico` are made from them (`icon.ico` holds plain bitmaps at 16 to 256 pixels, the layout Windows reads most reliably) |
 | `tools/` | Importers for old bulletins and development scripts |
 
 The bundled font is EB Garamond, under the SIL Open Font License
