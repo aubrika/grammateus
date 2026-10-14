@@ -84,7 +84,7 @@ function menu() {
       { type: "separator" },
       { label: "Show the log file", click: () => { log("log shown"); shell.showItemInFolder(logFile()); } },
       { label: "About Grammateus", click: () => dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "About Grammateus",
-          message: `Grammateus ${app.getVersion()}`, detail: "Makes a folded Sunday bulletin as a PDF ready for the printer." }) },
+          message: `Grammateus ${app.getVersion()}`, detail: "A tool for producing weekly church bulletins.\n\nPre-release version, for testing. License pending." }) },
     ] },
   ]);
 }

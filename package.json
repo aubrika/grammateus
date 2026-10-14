@@ -1,6 +1,6 @@
 {
   "name": "grammateus",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "private": true,
   "description": "Makes a folded, stapled Sunday bulletin as a print-ready PDF",
   "type": "module",
