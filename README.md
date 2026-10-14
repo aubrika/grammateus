@@ -2,11 +2,11 @@
 
 <h1 align="center">grammateus</h1>
 
-> ὁ δὲ εἶπεν αὐτοῖς· Διὰ τοῦτο πᾶς γραμματεὺς μαθητευθεὶς τῇ βασιλείᾳ τῶν οὐρανῶν ὅμοιός ἐστιν ἀνθρώπῳ οἰκοδεσπότῃ ὅστις ἐκβάλλει ἐκ τοῦ θησαυροῦ αὐτοῦ καινὰ καὶ παλαιά.
+> ὁ δὲ εἶπεν αὐτοῖς Διὰ τοῦτο πᾶς γραμματεὺς μαθητευθεὶς τῇ βασιλείᾳ τῶν οὐρανῶν ὅμοιός ἐστιν ἀνθρώπῳ οἰκοδεσπότῃ ὅστις ἐκβάλλει ἐκ τοῦ θησαυροῦ αὐτοῦ καινὰ καὶ παλαιά.
 >
-> Then said he unto them, Therefore every scribe which is instructed unto the kingdom of heaven is like unto a man that is an householder, which bringeth forth out of his treasure things new and old.
+> And he said to them, "Therefore every scribe who has been made a disciple of the kingdom of heaven is like the master of a house, who brings out of his storeroom things new and old."
 >
-> — Matthew 13:52 (Greek: SBLGNT; English: KJV)
+> — Matthew 13:52
 
 *Grammateus* (γραμματεύς) is the Greek word for a scribe.
 
