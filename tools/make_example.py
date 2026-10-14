@@ -81,7 +81,7 @@ service = [
     # Readings from the World English Bible (public domain), on one theme: the word written on the
     # heart, from stone and scroll to the congregation as a living letter
     H("First Reading", ref="Jeremiah 31:31–34",
-      note="The first reading is usually from the Old Testament. The first reading, psalm and second reading here are from the World English Bible, which is in the public domain."),
+      note="The first reading is usually from the Old Testament. All the readings here are from the World English Bible, which is in the public domain."),
     T(f"<sup>31</sup>\u201cBehold, the days come,\u201d says the {LORD}, \u201cthat I will make a new covenant with the house of Israel, "
       "and with the house of Judah, <sup>32</sup>not according to the covenant that I made with their fathers in the day that "
       "I took them by the hand to bring them out of the land of Egypt, which covenant of mine they broke, although I was a "
@@ -111,11 +111,13 @@ service = [
       "account anything as from ourselves; but our sufficiency is from God, <sup>6</sup>who also made us sufficient as servants "
       "of a new covenant, not of the letter but of the Spirit. For the letter kills, but the Spirit gives life."),
     T("The word of the Lord.<br><b>Thanks be to God.</b>"),
-    H("Gospel", True, ref="John 1:1–5", note="The assembly stands to hear the Gospel. This one is from the King James Version, also in the public domain."),
-    T("<sup>1</sup>In the beginning was the Word, and the Word was with God, and the Word was God. <sup>2</sup>The same was "
-      "in the beginning with God. <sup>3</sup>All things were made by him; and without him was not any thing made that "
-      "was made. <sup>4</sup>In him was life; and the life was the light of men. <sup>5</sup>And the light shineth in "
-      "darkness; and the darkness comprehended it not."),
+    H("Gospel", True, ref="Luke 24:28–32", note="The assembly stands to hear the Gospel."),
+    T("<sup>28</sup>They came near to the village where they were going, and he acted like he would go further. "
+      "<sup>29</sup>They urged him, saying, \u201cStay with us, for it is almost evening, and the day is almost over.\u201d "
+      "He went in to stay with them. <sup>30</sup>When he had sat down at the table with them, he took the bread and gave "
+      "thanks. Breaking it, he gave it to them. <sup>31</sup>Their eyes were opened and they recognized him; then he "
+      "vanished out of their sight. <sup>32</sup>They said to one another, \u201cWeren\u2019t our hearts burning within us "
+      "while he spoke to us along the way, and while he opened the Scriptures to us?\u201d"),
     T("The Gospel of the Lord.<br><b>Praise to you, O Christ.</b>"),
     H("Sermon"),
     T("<i>A time of silence follows the sermon.</i>"),
