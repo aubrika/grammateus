@@ -60,8 +60,8 @@ way but have not yet been tried on those systems.
   lays them out.
 - **It keeps itself up to date.** When the installed program starts, it asks the public
   downloads repository (`aubrika/grammateus-releases`, folder `updates/`) whether a newer
-  version exists. If so, it
-  downloads it while you work and installs it when you close the program. Help → *Check for
+  version exists. It asks again every hour while it
+  stays open. If there is one, it downloads it while you work and installs it when you close the program. Help → *Check for
   a newer version…* does the same check by hand. That is on Windows and with the Linux
   AppImage; on a Mac and with the Linux `.deb` package it says a newer version is ready to
   download and opens the downloads page.

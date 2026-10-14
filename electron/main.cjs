@@ -118,8 +118,15 @@ function tellUpdate(text) {
   if (win) win.webContents.send("update", text);
 }
 
+// Checked when the program starts, and again every hour while it stays open, so a version
+// published while it is running is still found (and a check that failed, for want of a
+// connection, is tried again).
+const RECHECK = 60 * 60 * 1000;
+const busyUpdating = () => updateReady || /Downloading|being downloaded/.test(updateNote);
+
 function setUpUpdates() {
   if (!app.isPackaged) return;             // only the installed program updates itself
+  setInterval(() => { if (!busyUpdating()) checkForUpdate(false); }, RECHECK);
   if (!replacesItself) { checkForUpdate(false); return; }
   try { updater = require("electron-updater").autoUpdater; } catch { return; }
   updater.autoDownload = true;
@@ -138,7 +145,7 @@ function setUpUpdates() {
   });
   updater.on("update-not-available", () => answer(`You have the newest version (${app.getVersion()}).`));
   updater.on("error", (error) => {
-    if (updateNote.startsWith("Downloading") || updateNote.includes("being downloaded")) tellUpdate("The new version could not be downloaded. Grammateus will try again next time it starts.");
+    if (updateNote.startsWith("Downloading") || updateNote.includes("being downloaded")) tellUpdate("The new version could not be downloaded. Grammateus will try again within the hour.");
     answer("Grammateus could not check for a newer version.", `Check that this computer is connected to the internet, then try again.\n\n(${error?.message?.split("\n")[0] || "unknown error"})`);
   });
   checkForUpdate(false);
@@ -153,16 +160,19 @@ const newer = (a, b) => {
 
 async function checkDownloadsPage(byHand) {
   const say = (message, detail) => byHand && win && dialog.showMessageBox(win, { type: "info", buttons: ["OK"], title: "Grammateus", message, detail });
+  log("update: checking the downloads page", byHand ? "(asked)" : "");
   try {
     const reply = await net.fetch("https://api.github.com/repos/aubrika/grammateus-releases/releases/latest",
       { headers: { Accept: "application/vnd.github+json", "User-Agent": "Grammateus" } });
     if (!reply.ok) throw new Error(`the downloads page answered ${reply.status}`);
     const latest = String((await reply.json()).tag_name || "").replace(/^v/, "");
+    log("update: the newest version is", latest);
     if (latest && newer(latest, app.getVersion())) {
       tellUpdate(`Version ${latest} is available on the downloads page.`);
       say(`Version ${latest} is available.`, "Press “Open the downloads page” at the top of the window to get it.");
     } else say(`You have the newest version (${app.getVersion()}).`);
   } catch (error) {
+    log("update: the check failed:", error.message);
     say("Grammateus could not check for a newer version.", `Check that this computer is connected to the internet, then try again.\n\n(${error.message})`);
   }
 }
