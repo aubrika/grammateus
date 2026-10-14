@@ -1,6 +1,6 @@
 {
   "name": "grammateus",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "Makes a folded, stapled Sunday bulletin as a print-ready PDF",
   "type": "module",
@@ -52,9 +52,8 @@
     ],
     "publish": [
       {
-        "provider": "github",
-        "owner": "aubrika",
-        "repo": "grammateus-releases"
+        "provider": "generic",
+        "url": "https://raw.githubusercontent.com/aubrika/grammateus-releases/main/updates"
       }
     ],
     "mac": {

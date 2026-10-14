@@ -59,7 +59,8 @@ way but have not yet been tried on those systems.
   the pages after the service. It works on bulletins laid out the way this program
   lays them out.
 - **It keeps itself up to date.** When the installed program starts, it asks the public
-  downloads page (`aubrika/grammateus-releases`) whether a newer version exists. If so, it
+  downloads repository (`aubrika/grammateus-releases`, folder `updates/`) whether a newer
+  version exists. If so, it
   downloads it while you work and installs it when you close the program. Help → *Check for
   a newer version…* does the same check by hand. That is on Windows and with the Linux
   AppImage; on a Mac and with the Linux `.deb` package it says a newer version is ready to
@@ -84,6 +85,11 @@ builds each one on its own system on every push, and publishes them as a release
 tag is pushed: set the version in `package.json`, then
 `git tag v0.2.0 && git push origin v0.2.0`. `npm run dist`, `npm run dist:mac` and
 `npm run dist:linux` build one by hand.
+
+To publish a version for everyone, copy only the installers (`.exe`, `.dmg`, `.deb`,
+`.AppImage`) to a release of `aubrika/grammateus-releases`, then put that release's
+`latest.yml` and `latest-linux.yml` in its `updates/` folder with each file name replaced
+by the full download address of that file. Installed copies read those two files.
 
 For development without the desktop shell, the page-making script needs Chromium:
 
