@@ -78,29 +78,40 @@ service = [
     T("Let us pray.<br>Gracious God, be present with your people gathered here, that we may hear your word and be glad.<br><b>Amen.</b>"),
 
     {"type": "section", "text": "Word"},
-    H("First Reading", ref="Isaiah 40:28-31",
-      note="The first reading is usually from the Old Testament. The readings here are from the King James Version, which is in the public domain."),
-    T(f"<sup>28</sup>Hast thou not known? hast thou not heard, that the everlasting God, the {LORD}, the Creator of the ends "
-      "of the earth, fainteth not, neither is weary? there is no searching of his understanding. <sup>29</sup>He giveth "
-      "power to the faint; and to them that have no might he increaseth strength."),
-    T("<sup>30</sup>Even the youths shall faint and be weary, and the young men shall utterly fall: <sup>31</sup>But they "
-      f"that wait upon the {LORD} shall renew their strength; they shall mount up with wings as eagles; they shall run, "
-      "and not be weary; and they shall walk, and not faint."),
+    # Readings from the World English Bible (public domain), on one theme: the word written on the
+    # heart, from stone and scroll to the congregation as a living letter
+    H("First Reading", ref="Jeremiah 31:31–34",
+      note="The first reading is usually from the Old Testament. The first reading, psalm and second reading here are from the World English Bible, which is in the public domain."),
+    T(f"<sup>31</sup>\u201cBehold, the days come,\u201d says the {LORD}, \u201cthat I will make a new covenant with the house of Israel, "
+      "and with the house of Judah, <sup>32</sup>not according to the covenant that I made with their fathers in the day that "
+      "I took them by the hand to bring them out of the land of Egypt, which covenant of mine they broke, although I was a "
+      f"husband to them,\u201d says the {LORD}."),
+    T(f"<sup>33</sup>\u201cBut this is the covenant that I will make with the house of Israel after those days,\u201d says the {LORD}: "
+      "\u201cI will put my law in their inward parts, and I will write it in their heart. I will be their God, and they shall "
+      "be my people. <sup>34</sup>They will no longer each teach his neighbor, and every man teach his brother, saying, "
+      f"\u2018Know the {LORD};\u2019 for they will all know me, from their least to their greatest,\u201d says the {LORD}, \u201cfor I will "
+      "forgive their iniquity, and I will remember their sin no more.\u201d"),
     T("The word of the Lord.<br><b>Thanks be to God.</b>"),
-    H("Psalm", ref="Psalm 23", note="The psalm is often sung or read together, as a response to the first reading."),
-    T(f"<sup>1</sup>The {LORD} is my shepherd; I shall not want. <sup>2</sup>He maketh me to lie down in green pastures: he "
-      "leadeth me beside the still waters. <sup>3</sup>He restoreth my soul: he leadeth me in the paths of righteousness "
-      "for his name's sake."),
-    T("<sup>4</sup>Yea, though I walk through the valley of the shadow of death, I will fear no evil: for thou art with me; "
-      "thy rod and thy staff they comfort me. <sup>5</sup>Thou preparest a table before me in the presence of mine "
-      "enemies: thou anointest my head with oil; my cup runneth over. <sup>6</sup>Surely goodness and mercy shall follow "
-      f"me all the days of my life: and I will dwell in the house of the {LORD} for ever."),
-    H("Second Reading", ref="Romans 8:38-39", note="The second reading is usually from one of the letters in the New Testament."),
-    T("<sup>38</sup>For I am persuaded, that neither death, nor life, nor angels, nor principalities, nor powers, nor things "
-      "present, nor things to come, <sup>39</sup>Nor height, nor depth, nor any other creature, shall be able to separate "
-      "us from the love of God, which is in Christ Jesus our Lord."),
+    H("Psalm", ref="Psalm 40:6–10", note="The psalm is often sung or read together, as a response to the first reading."),
+    T("<sup>6</sup>Sacrifice and offering you didn\u2019t desire.<br>You have opened my ears.<br>"
+      "You have not required burnt offering and sin offering.<br>"
+      "<sup>7</sup>Then I said, \u201cBehold, I have come.<br>It is written about me in the book in the scroll.<br>"
+      "<sup>8</sup>I delight to do your will, my God.<br>Yes, your law is within my heart.\u201d"),
+    T(f"<sup>9</sup>I have proclaimed glad news of righteousness in the great assembly.<br>"
+      f"Behold, I will not seal my lips, {LORD}, you know.<br>"
+      "<sup>10</sup>I have not hidden your righteousness within my heart.<br>"
+      "I have declared your faithfulness and your salvation.<br>"
+      "I have not concealed your loving kindness and your truth from the great assembly."),
+    H("Second Reading", ref="2 Corinthians 3:1–6", note="The second reading is usually from one of the letters in the New Testament."),
+    T("<sup>1</sup>Are we beginning again to commend ourselves? Or do we need, as do some, letters of commendation to you or "
+      "from you? <sup>2</sup>You are our letter, written in our hearts, known and read by all men, <sup>3</sup>being revealed "
+      "that you are a letter of Christ, served by us, written not with ink, but with the Spirit of the living God; not in "
+      "tablets of stone, but in tablets that are hearts of flesh."),
+    T("<sup>4</sup>Such confidence we have through Christ toward God, <sup>5</sup>not that we are sufficient of ourselves to "
+      "account anything as from ourselves; but our sufficiency is from God, <sup>6</sup>who also made us sufficient as servants "
+      "of a new covenant, not of the letter but of the Spirit. For the letter kills, but the Spirit gives life."),
     T("The word of the Lord.<br><b>Thanks be to God.</b>"),
-    H("Gospel", True, ref="John 1:1-5", note="The assembly stands to hear the Gospel."),
+    H("Gospel", True, ref="John 1:1–5", note="The assembly stands to hear the Gospel. This one is from the King James Version, also in the public domain."),
     T("<sup>1</sup>In the beginning was the Word, and the Word was with God, and the Word was God. <sup>2</sup>The same was "
       "in the beginning with God. <sup>3</sup>All things were made by him; and without him was not any thing made that "
       "was made. <sup>4</sup>In him was life; and the life was the light of men. <sup>5</sup>And the light shineth in "
