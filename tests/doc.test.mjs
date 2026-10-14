@@ -32,9 +32,18 @@ test("a bulletin saved by the first version is turned into parts without losing 
   assert.deepEqual(back.blocks[2].images, ["img:x", "img:y"]);
   assert.equal(back.last, true);
   assert.equal(doc.style.font, "Georgia");
-  assert.equal(doc.style.noteSize, 11);
+  assert.equal(doc.style.sizes.note, 11);
+  assert.equal(doc.style.size, 14);                       // the service's size became the default
   assert.equal(doc.extraSheets, 0);
   assert.ok(!("service" in doc) && !("welcome" in doc));
+});
+
+test("parts without a size of their own use the bulletin's default size", () => {
+  const doc = normalize({ style: { size: 16 }, parts: [{ name: "A", size: 13 }, { name: "B" }] });
+  assert.equal(doc.style.size, 16);
+  assert.equal(doc.parts[0].size, 13);
+  assert.ok(!("size" in doc.parts[1]));
+  assert.ok(!("note" in doc.style.sizes));                 // side notes keep their usual size
 });
 
 test("only one part is last, and it is kept at the end", () => {

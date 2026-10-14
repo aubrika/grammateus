@@ -23,9 +23,10 @@ export const PAPERS = {
   a5: { name: "A5", w: 148 / 25.4, h: 210 / 25.4, sheet: "A4", shown: "148 × 210 mm" },
 };
 
-// The kinds of item that can also be given their own text size. Side notes have theirs
-// already, and the cover's words are sized to its design.
-export const SIZE_KINDS = ["section", "heading", "text", "hymn", "roster", "columns"];
+// The kinds of item that can also be given their own text size (the cover's words are sized
+// to its design). Side notes are 12 points unless they are given another size.
+export const SIZE_KINDS = ["section", "heading", "text", "hymn", "note", "roster", "columns"];
+export const NOTE_SIZE = 12;
 
 export const BLOCK_NAMES = {
   section: "Section title",
@@ -45,7 +46,7 @@ export function emptyBulletin() {
 }
 
 export function newPart(name = "New part") {
-  return { name, side: false, size: 14.5, blocks: [] };
+  return { name, side: false, blocks: [] };          // no size of its own: it uses the default
 }
 
 // Bulletins saved by the first version kept the welcome page, service, extra pages and back
@@ -77,15 +78,21 @@ export function normalize(doc) {
   // that is not listed uses the bulletin's font
   const fonts = Object.fromEntries(Object.entries(doc.style?.fonts || {}).filter(([, v]) => v));
   // `sizes` likewise holds a text size in points for each kind; a kind not listed uses the
-  // size of the part it is in
+  // size of the part it is in (side notes: NOTE_SIZE). Bulletins saved before side notes
+  // joined this list kept their size as `noteSize`.
   const sizes = Object.fromEntries(Object.entries(doc.style?.sizes || {}).filter(([k, v]) => SIZE_KINDS.includes(k) && v >= 5 && v <= 60));
+  if (doc.style?.noteSize && doc.style.noteSize !== NOTE_SIZE && !sizes.note) sizes.note = doc.style.noteSize;
   const paper = PAPERS[doc.style?.paper] ? doc.style.paper : "letter";
-  doc.style = { font: doc.style?.font || "EB Garamond", noteSize: doc.style?.noteSize || 12, fonts, sizes, paper,
+  // the default text size, used by every part that has no size of its own; bulletins saved
+  // before there was one take the size of their main part
+  const main = (doc.parts || []).find((p) => p.side && p.size) || (doc.parts || []).find((p) => p.size);
+  const size = doc.style?.size >= 5 ? doc.style.size : main?.size || 14.5;
+  doc.style = { font: doc.style?.font || "EB Garamond", size, fonts, sizes, paper,
                 ...(doc.style?.whiteSide ? { whiteSide: true } : {}) };
   doc.wholeSheets = doc.wholeSheets !== false;
   doc.meta = { title: "", sunday: "", date: "", ...(doc.meta || {}) };
   doc.cover = { show: true, image: "", footer: [], ...(doc.cover || {}) };
-  doc.parts = doc.parts.map((p) => ({ name: p.name || "Part", side: !!p.side, size: p.size || 14.5, ...(p.last ? { last: true } : {}), blocks: p.blocks || [] }));
+  doc.parts = doc.parts.map((p) => ({ name: p.name || "Part", side: !!p.side, ...(p.size >= 5 ? { size: p.size } : {}), ...(p.last ? { last: true } : {}), blocks: p.blocks || [] }));
   placeLast(doc);
   doc.extraSheets = Math.max(0, doc.extraSheets || 0);
   doc.images = doc.images || {};

@@ -627,5 +627,7 @@ export async function buildBulletin({ pages, count }, first, last, progress = as
   if (paper) doc.style.paper = paper[0];
   const made = normalize(doc);
   if (welcomeBlocks) Object.assign(made.parts[0], { blocks: strip(welcomeBlocks), size: Math.round(welcomeSize * 2) / 2 || 13 });
+  // the service's size is the bulletin's default; only parts that differ keep a size of their own
+  for (const part of made.parts) if (part.size === made.style.size) delete part.size;
   return made;
 }

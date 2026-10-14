@@ -158,14 +158,14 @@ back = [
 
 doc = {
     "format": 2,
-    "style": {"font": "EB Garamond", "noteSize": 12},
+    "style": {"font": "EB Garamond", "size": 15},
     "meta": {"title": "Service of the Word", "sunday": "An Example Sunday", "date": "January 1, 2027"},
     "cover": {"show": True, "image": "img:emblem", "footer": ["Example Church", "Anytown"]},
     "parts": [
         {"name": "Welcome page", "side": False, "size": 13, "blocks": welcome},
-        {"name": "The service", "side": True, "size": 15, "blocks": service},
-        {"name": "Extra pages", "side": False, "size": 14.5, "blocks": extras},
-        {"name": "Back page", "side": False, "size": 14, "last": True, "blocks": back},
+        {"name": "The service", "side": True, "blocks": service},
+        {"name": "Extra pages", "side": False, "blocks": extras},
+        {"name": "Back page", "side": False, "last": True, "blocks": back},
     ],
     "extraSheets": 0,
     "images": {"emblem": emblem(), "music1": music(3, 7), "music2": music(9, 99)},

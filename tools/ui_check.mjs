@@ -141,7 +141,7 @@ try {
   await shot("4-parts.png");
 
   // enlarging the text to fill the sheets, and undoing it
-  const sizes = `JSON.parse(window.grammateus.serialise()).parts.map(p => p.size).join(', ')`;
+  const sizes = `(d => 'default ' + d.style.size + ', parts ' + d.parts.map(p => p.size || '-').join(', ') + ', notes ' + (d.style.sizes.note || 'usual'))(JSON.parse(window.grammateus.serialise()))`;
   const sizesBefore = await ev(sizes), reportBefore = await ev("JSON.stringify([window.grammateus.report().pages, window.grammateus.report().blankPages])");
   await ev(`window.__seen = []; window.__t = setInterval(() => { const b = document.getElementById('busy'); if (!b.hidden) window.__seen.push(document.getElementById('busypct').textContent); }, 25)`);
   await ev("window.grammateus.fitToSheets()");
@@ -189,13 +189,14 @@ try {
 
   // other paper sizes, and a white side column
   await ev(`document.querySelector('#outline .row.design').click()`); await sleep(400);
-  const pageInfo = `(() => { const p = document.querySelector('#pages .page'); const r = p.getBoundingClientRect(); return (r.width / 96).toFixed(2) + ' x ' + (r.height / 96).toFixed(2) + ' in, ' + window.grammateus.report().pages + ' pages, service text ' + JSON.parse(window.grammateus.serialise()).parts[1].size + ' pt'; })()`;
+  const pageInfo = `(() => { const p = document.querySelector('#pages .page'); const r = p.getBoundingClientRect(); return (r.width / 96).toFixed(2) + ' x ' + (r.height / 96).toFixed(2) + ' in, ' + window.grammateus.report().pages + ' pages, default size ' + JSON.parse(window.grammateus.serialise()).style.size + ' pt'; })()`;
   const letterInfo = await ev(pageInfo);
   await ev(`(() => { const s = document.querySelector('#form select'); s.value = 'half-letter'; s.dispatchEvent(new Event('change', {bubbles:true})); })()`); await sleep(2500);
   console.log("paper: letter", letterInfo, "→ half letter", await ev(pageInfo), "| print size:", await ev(`document.getElementById('paper-size').textContent`),
     "| preview page width matches:", await ev(`document.querySelector('#shown .page').offsetWidth === document.querySelector('#pages .page').offsetWidth`));
   console.log("  status:", await ev("document.getElementById('status').textContent.slice(0, 90)"));
   await shot("7-half-letter.png");
+  await ev("document.getElementById('form').scrollTop = 0"); await sleep(200);
   const sideBg = `getComputedStyle(document.querySelector('#shown .side')).backgroundColor`;
   const grey = await ev(sideBg);
   await ev(`[...document.querySelectorAll('#form label.check')].find(l => l.textContent.includes('White side column')).querySelector('input').click()`); await sleep(1800);

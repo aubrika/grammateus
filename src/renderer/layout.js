@@ -5,7 +5,7 @@
 // lines and anything else moves to the next page. A side note is tied to a block, so it
 // is drawn beside wherever that block ends up.
 
-import { PAPERS } from "../app/doc.js";
+import { NOTE_SIZE, PAPERS } from "../app/doc.js";
 
 const el = (tag, cls, html) => {
   const e = document.createElement(tag);
@@ -182,7 +182,7 @@ function splitAtLine(p, keep) {
 function flowPage(pages, number, part, partIndex, folio, before) {
   const page = el("div", `page ${part.side ? "service" : "extra"} ${number % 2 ? "odd" : "even"}`);
   page.dataset.part = partIndex;
-  page.style.setProperty("--part-size", `${part.size || 14.5}pt`);
+  page.style.setProperty("--part-size", `${part.size || defaultSize}pt`);
   const side = part.side ? el("div", "side") : null;
   const main = el("div", "main");
   if (side) page.append(side);
@@ -197,6 +197,7 @@ const fits = (main) => main.scrollHeight <= main.clientHeight + 0.5;
 const family = (name) => `"${String(name).replace(/["\\]/g, "")}", var(--serif)`;
 let fonts = {};                                           // font for each kind of item, set per layout
 let sizes = {};                                           // text size for each kind of item, likewise
+let defaultSize = 14.5;                                   // for parts with no size of their own
 
 async function flow(part, kind, pages, firstNumber, src, folio = true, before = null) {
   const blocks = part.blocks || [];
@@ -353,7 +354,7 @@ export async function layoutBulletin(doc, pages, base = "") {
   const src = resolver(doc, base);
   const style = doc.style || {};
   pages.style.setProperty("--serif", `"${style.font || "EB Garamond"}", "EB Garamond", serif`);
-  pages.style.setProperty("--note-size", `${style.noteSize || 12}pt`);
+  pages.style.setProperty("--note-size", `${style.sizes?.note || NOTE_SIZE}pt`);
   // the size of paper: the pages, the printed PDF, and everything drawn in proportion to them
   const paper = PAPERS[style.paper] || PAPERS.letter;
   pages.style.setProperty("--page-w", `${paper.w}in`);
@@ -367,6 +368,7 @@ export async function layoutBulletin(doc, pages, base = "") {
   if (style.whiteSide) pages.style.setProperty("--grey", "#fff"); else pages.style.removeProperty("--grey");
   fonts = style.fonts || {};
   sizes = style.sizes || {};
+  defaultSize = style.size || 14.5;
   // without whole sheets, only the sheets asked for are added; the printer supplies any other blanks
   const sheetsFor = (count) => (doc.wholeSheets === false ? count / 4 : Math.ceil(count / 4) || 1) + Math.max(0, doc.extraSheets || 0);
   pages.replaceChildren();
