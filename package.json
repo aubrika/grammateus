@@ -1,6 +1,6 @@
 {
   "name": "grammateus",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "private": true,
   "description": "Makes a folded, stapled Sunday bulletin as a print-ready PDF",
   "type": "module",
@@ -28,7 +28,13 @@
       "examples/**",
       "build/icon.png",
       "package.json",
-      "!node_modules/@napi-rs/**"
+      "!node_modules/@napi-rs/**",
+      "!node_modules/pdfjs-dist/{legacy,web,image_decoders,types,cmaps,standard_fonts}/**",
+      "!node_modules/pdfjs-dist/build/{pdf.mjs,pdf.worker.mjs,pdf.sandbox.mjs,pdf.sandbox.min.mjs}",
+      "!node_modules/pdf-lib/{es,dist,src,ts3.4}/**",
+      "!**/*.map",
+      "!**/*.d.ts",
+      "!**/*.d.mts"
     ],
     "win": {
       "target": "nsis",
@@ -40,7 +46,7 @@
       "createStartMenuShortcut": true,
       "createDesktopShortcut": false,
       "shortcutName": "Grammateus",
-      "artifactName": "Grammateus-Setup-${version}.${ext}"
+      "artifactName": "Grammateus-${version}-windows.${ext}"
     },
     "fileAssociations": [
       {
@@ -83,8 +89,11 @@
       "executableName": "grammateus",
       "maintainer": "aubrika <aubrika@users.noreply.github.com>",
       "synopsis": "Makes weekly church bulletins",
-      "artifactName": "Grammateus-${version}-linux-${arch}.${ext}"
-    }
+      "artifactName": "Grammateus-${version}-linux.${ext}"
+    },
+    "electronLanguages": [
+      "en-US"
+    ]
   },
   "devDependencies": {
     "electron": "^41.7.1",

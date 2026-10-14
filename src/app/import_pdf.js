@@ -7,10 +7,10 @@
 //
 // Measurements are in points (72 to the inch), with y running down the page.
 
-import * as pdfjs from "../../node_modules/pdfjs-dist/build/pdf.mjs";
+import * as pdfjs from "../../node_modules/pdfjs-dist/build/pdf.min.mjs";
 import { PAPERS, normalize } from "./doc.js";
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL("../../node_modules/pdfjs-dist/build/pdf.worker.mjs", import.meta.url).href;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL("../../node_modules/pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
 const IN = 72;
 const escapeHtml = (t) => t.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
@@ -34,15 +34,15 @@ function toCanvas(image) {
   if (image.bitmap) { g.drawImage(image.bitmap, 0, 0); return canvas; }
   const out = g.createImageData(image.width, image.height);
   const src = image.data, n = image.width * image.height;
+  // one whole pixel (red, green, blue, opacity) written at a time; the bytes of a 32-bit
+  // number are stored lowest first on every computer this runs on
+  const pixels = new Uint32Array(out.data.buffer);
   if (image.kind === 1) {                       // one bit per pixel, rows padded to whole bytes
     const stride = (image.width + 7) >> 3;
-    for (let y = 0; y < image.height; y++) for (let x = 0; x < image.width; x++) {
-      const v = (src[y * stride + (x >> 3)] >> (7 - (x & 7))) & 1 ? 255 : 0;
-      const i = (y * image.width + x) * 4;
-      out.data[i] = out.data[i + 1] = out.data[i + 2] = v; out.data[i + 3] = 255;
-    }
-  } else if (image.kind === 2) {
-    for (let i = 0; i < n; i++) { out.data[i * 4] = src[i * 3]; out.data[i * 4 + 1] = src[i * 3 + 1]; out.data[i * 4 + 2] = src[i * 3 + 2]; out.data[i * 4 + 3] = 255; }
+    for (let y = 0, i = 0; y < image.height; y++) for (let x = 0; x < image.width; x++, i++)
+      pixels[i] = (src[y * stride + (x >> 3)] >> (7 - (x & 7))) & 1 ? 0xffffffff : 0xff000000;
+  } else if (image.kind === 2) {                // three bytes per pixel
+    for (let i = 0, j = 0; i < n; i++, j += 3) pixels[i] = 0xff000000 | (src[j + 2] << 16) | (src[j + 1] << 8) | src[j];
   } else {
     out.data.set(src.subarray(0, n * 4));
   }
@@ -538,11 +538,18 @@ export async function inspectPdf(data, progress = async () => {}) {
   if (attached?.content) {
     try { return { embedded: normalize(JSON.parse(new TextDecoder().decode(attached.content))), count: pdf.numPages }; } catch { /* fall through */ }
   }
-  const pages = [];
-  for (let n = 1; n <= pdf.numPages; n++) {
-    await progress(`Reading page ${n} of ${pdf.numPages}…`, 0.6 * (n - 1) / pdf.numPages);
-    pages.push(await readPage(pdf, n));
-  }
+  // a few pages at a time, so the reader prepares the next pages while this one is unpacked
+  const pages = new Array(pdf.numPages);
+  const waiting = Array.from(pages, (_, i) => i + 1);
+  let read = 0;
+  await progress(`Reading page 1 of ${pdf.numPages}…`, 0);
+  await Promise.all(Array.from({ length: Math.min(4, pdf.numPages) }, async () => {
+    for (let n; (n = waiting.shift()); ) {
+      pages[n - 1] = await readPage(pdf, n);
+      read++;
+      await progress(`Reading page ${Math.min(read + 1, pdf.numPages)} of ${pdf.numPages}…`, 0.6 * read / pdf.numPages);
+    }
+  }));
   await progress("Working out which pages are the service…", 0.6);
   const service = pages.filter(looksLikeService).map((p) => p.number);
   // a page of nothing but music has no side notes, so take the whole stretch from the first
