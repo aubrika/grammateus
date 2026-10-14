@@ -516,6 +516,8 @@ async function updatePreview() {
     const shown = $("shown");
     const keep = $("preview").scrollTop;
     shown.replaceChildren(...[...$("pages").children].map((p) => p.cloneNode(true)));
+    // the bulletin's font and note size are set on the true-size pages; the preview needs them too
+    for (const name of ["--serif", "--note-size"]) shown.style.setProperty(name, $("pages").style.getPropertyValue(name));
     $("preview").scrollTop = keep;
     highlight(false);
     problem = "";

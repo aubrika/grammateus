@@ -168,6 +168,14 @@ try {
   await ev(`document.querySelector('#form .fontbox .menu button:nth-child(4)').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))`); await sleep(1200);
   console.log("chosen from the list:", await ev(`document.querySelector('#form .fontbox input').value`), "| list closed:", await ev(`document.querySelector('#form .fontbox .menu').hidden`));
 
+  // the font for the whole bulletin, and the size of side notes, reach the preview as well as the PDF
+  await ev(`document.querySelector('#outline .row.design').click()`); await sleep(400);
+  await ev(`(() => { const i = document.querySelector('#form .fontbox input'); i.focus(); i.value = 'Verdana'; i.dispatchEvent(new Event('input', {bubbles:true})); })()`);
+  await sleep(1800);
+  console.log("whole-bulletin font set to Verdana → preview text uses:", await ev(`getComputedStyle(document.querySelector('#shown .main .text')).fontFamily.split(',')[0]`),
+    "| preview note size matches the pages:", await ev(`getComputedStyle(document.querySelector('#shown .side .note')).fontSize === getComputedStyle(document.querySelector('#pages .side .note')).fontSize`));
+  await ev("document.getElementById('undo').click()"); await sleep(1500);
+
   // the progress panel, as it looks part of the way through an import
   await ev(`(() => { document.getElementById('busy').hidden = false; document.getElementById('busytext').textContent = 'Reading page 7 of 16…'; document.getElementById('busybar').value = 42; document.getElementById('busypct').textContent = '42% done'; })()`);
   await sleep(300);
