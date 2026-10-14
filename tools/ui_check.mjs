@@ -176,6 +176,17 @@ try {
     "| preview note size matches the pages:", await ev(`getComputedStyle(document.querySelector('#shown .side .note')).fontSize === getComputedStyle(document.querySelector('#pages .side .note')).fontSize`));
   await ev("document.getElementById('undo').click()"); await sleep(1500);
 
+  // a text size for every item of one kind, set under Design
+  await ev(`document.querySelector('#outline .row.design').click()`); await sleep(400);
+  const headingSize = `getComputedStyle(document.querySelector('#shown .heading')).fontSize`;
+  const sizeBefore = await ev(headingSize);
+  await ev(`(() => { const row = [...document.querySelectorAll('#form label')].find(l => l.textContent === 'Headings').nextElementSibling; const i = row.querySelector('.sizebox input'); i.value = '20'; i.dispatchEvent(new Event('input', {bubbles:true})); })()`);
+  await sleep(1800);
+  console.log("headings:", sizeBefore, "→ with 20 pt for all headings:", await ev(headingSize), "(20 pt is 26.67px) | all headings that size:",
+    await ev(`[...document.querySelectorAll('#shown .heading')].every(h => getComputedStyle(h).fontSize === '26.6667px')`), "| text unchanged:", await ev(`getComputedStyle(document.querySelector('#shown .main .text')).fontSize`));
+  await ev("document.getElementById('undo').click()"); await sleep(1500);
+  console.log("  after undo:", await ev(headingSize));
+
   // other paper sizes, and a white side column
   await ev(`document.querySelector('#outline .row.design').click()`); await sleep(400);
   const pageInfo = `(() => { const p = document.querySelector('#pages .page'); const r = p.getBoundingClientRect(); return (r.width / 96).toFixed(2) + ' x ' + (r.height / 96).toFixed(2) + ' in, ' + window.grammateus.report().pages + ' pages, service text ' + JSON.parse(window.grammateus.serialise()).parts[1].size + ' pt'; })()`;

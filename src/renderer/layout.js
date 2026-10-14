@@ -196,6 +196,7 @@ const fits = (main) => main.scrollHeight <= main.clientHeight + 0.5;
 
 const family = (name) => `"${String(name).replace(/["\\]/g, "")}", var(--serif)`;
 let fonts = {};                                           // font for each kind of item, set per layout
+let sizes = {};                                           // text size for each kind of item, likewise
 
 async function flow(part, kind, pages, firstNumber, src, folio = true, before = null) {
   const blocks = part.blocks || [];
@@ -212,7 +213,8 @@ async function flow(part, kind, pages, firstNumber, src, folio = true, before = 
     node.dataset.index = index;
     const font = block.font || fonts[block.type];           // this item's own font, or the font for its kind
     if (font) node.style.fontFamily = family(font);
-    if (block.size) node.style.fontSize = `${block.size}pt`;   // this item's own text size
+    const size = block.size || sizes[block.type];           // this item's own text size, or its kind's
+    if (size) node.style.fontSize = `${size}pt`;
     const pictures = [...node.querySelectorAll("img")];
     await Promise.all(pictures.map((i) => i.decode().catch(() => {})));
     let first = true;
@@ -364,6 +366,7 @@ export async function layoutBulletin(doc, pages, base = "") {
   // a white side column saves toner; the notes still sit in it
   if (style.whiteSide) pages.style.setProperty("--grey", "#fff"); else pages.style.removeProperty("--grey");
   fonts = style.fonts || {};
+  sizes = style.sizes || {};
   // without whole sheets, only the sheets asked for are added; the printer supplies any other blanks
   const sheetsFor = (count) => (doc.wholeSheets === false ? count / 4 : Math.ceil(count / 4) || 1) + Math.max(0, doc.extraSheets || 0);
   pages.replaceChildren();

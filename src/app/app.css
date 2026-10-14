@@ -65,6 +65,8 @@ main.no-outline #outline { display: none; }
 #form .item { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 8px 0; }
 #form .item .itemtools { display: flex; gap: 6px; margin-top: 6px; }
 #form .fontrow { display: flex; gap: 6px; align-items: center; }
+#form .sizebox { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); flex: none; }
+#form .sizebox input[type=number] { width: 72px; }
 #form .fontbox { flex: 1; position: relative; display: flex; }
 #form .fontbox input { flex: 1; padding-right: 34px; }
 #form .fontbox .arrow { position: absolute; right: 1px; top: 1px; bottom: 1px; width: 30px; padding: 0; border: 0; border-left: 1px solid var(--line); border-radius: 0 5px 5px 0;

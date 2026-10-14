@@ -2,7 +2,7 @@
 // in the middle, and a live preview of the pages on the right.
 
 import { layoutBulletin } from "../renderer/layout.js";
-import { BLOCK_NAMES, FONT_KINDS, PAPERS, addImage, cleanHtml, emptyBulletin, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "./doc.js";
+import { BLOCK_NAMES, FONT_KINDS, PAPERS, SIZE_KINDS, addImage, cleanHtml, emptyBulletin, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "./doc.js";
 
 const $ = (id) => document.getElementById(id);
 const desk = window.desk || null;            // provided by the desktop program; absent in a plain browser
@@ -337,10 +337,11 @@ function designForm(form) {
     ...sizeField("Size of the side notes (points)", () => doc.style.noteSize, (v) => (doc.style.noteSize = v), 7, 16),
     checkbox("White side column, to save toner (the notes stay where they are)", !!doc.style.whiteSide,
       (v) => { if (v) doc.style.whiteSide = true; else delete doc.style.whiteSide; }),
-    h("h2", {}, "A different font for one kind of item"),
-    h("p", { class: "hint" }, "Leave a box empty to use the bulletin's font. A single item can also be given its own font, where you edit it."),
+    h("h2", {}, "A different font or size for one kind of item"),
+    h("p", { class: "hint" }, "Leave a font box empty to use the bulletin's font, and a size box empty to use the size of the part the item is in. " +
+      "A single item can also be given its own font and size, where you edit it."),
     ...Object.entries(FONT_KINDS).flatMap(([kind, words]) => fontField(words.charAt(0).toUpperCase() + words.slice(1), () => fonts[kind],
-      (v) => { if (v) fonts[kind] = v; else delete fonts[kind]; }, "the bulletin's font")),
+      (v) => { if (v) fonts[kind] = v; else delete fonts[kind]; }, "the bulletin's font", SIZE_KINDS.includes(kind) ? kindSize(kind) : null)),
     h("h2", {}, "Sheets of paper"),
     h("label", {}, "Size of each page of the folded bulletin"), paperField(),
     h("p", { class: "hint" }, "Each sheet is twice the page size and folded in half. When you change the size, " +
@@ -353,6 +354,18 @@ function designForm(form) {
       "Pictures and music stay the same size. It takes a few seconds, and Undo puts the sizes back."));
 }
 
+// A text size in points for every item of one kind; empty means the size of the part.
+function kindSize(kind) {
+  const input = h("input", { type: "number", min: 5, max: 60, step: 0.5, value: doc.style.sizes[kind] || "", placeholder: "size",
+                             title: `Text size for all ${FONT_KINDS[kind]}, in points` });
+  input.addEventListener("input", () => {
+    const v = parseFloat(input.value);
+    if (v >= 5 && v <= 60) doc.style.sizes[kind] = v; else delete doc.style.sizes[kind];
+    changed(false);
+  });
+  return h("span", { class: "sizebox" }, input, " pt");
+}
+
 // Changing the paper scales every text size by the change in page width, so the bulletin keeps its look.
 function paperField() {
   const select = h("select", {}, ...Object.entries(PAPERS).map(([key, p]) =>
@@ -362,6 +375,7 @@ function paperField() {
     const k = to.w / from.w, half = (v) => Math.max(5, Math.round(v * k * 2) / 2);
     doc.style.paper = select.value;
     doc.style.noteSize = half(doc.style.noteSize);
+    for (const kind of Object.keys(doc.style.sizes)) doc.style.sizes[kind] = half(doc.style.sizes[kind]);
     for (const part of doc.parts) {
       part.size = half(part.size);
       for (const b of part.blocks) if (b.size) b.size = half(b.size);
@@ -500,11 +514,15 @@ function blockForm(form, p, i) {
     });
     form.append(...fontField("Font for this item (optional)", () => block.font, (v) => { if (v) block.font = v; else delete block.font; },
       doc.style.fonts[block.type] || doc.style.font, everywhere));
-    if (["text", "columns", "roster"].includes(block.type)) {
-      const size = h("input", { type: "number", min: 5, max: 60, step: 0.5, value: block.size || "", placeholder: String(part.size) });
+    if (SIZE_KINDS.includes(block.type)) {
+      const kindSize = doc.style.sizes[block.type];
+      const size = h("input", { type: "number", min: 5, max: 60, step: 0.5, value: block.size || "", placeholder: String(kindSize || part.size) });
       size.addEventListener("input", () => { const v = parseFloat(size.value); if (v >= 5 && v <= 60) block.size = v; else delete block.size; changed(false); });
       form.append(h("label", {}, "Text size for this item, in points (optional)"), size,
-        h("p", { class: "hint" }, `Leave this empty to use the size of “${part.name}”, which is ${part.size} points.`));
+        h("p", { class: "hint" }, kindSize
+          ? `Leave this empty to use the size chosen for all ${FONT_KINDS[block.type]} under Design, which is ${kindSize} points.`
+          : `Leave this empty to use the size of “${part.name}”, which is ${part.size} points` +
+            (block.type === "section" ? " (section titles are drawn larger than that)." : ".")));
     }
   }
 
@@ -698,11 +716,13 @@ async function fitToSheets() {
   if (fitting) return;
   fitting = true;
   commitSnapshot();
-  const original = { parts: doc.parts.map((p) => p.size), note: doc.style.noteSize, items: doc.parts.map((p) => p.blocks.map((b) => b.size)) };
+  const original = { parts: doc.parts.map((p) => p.size), note: doc.style.noteSize, items: doc.parts.map((p) => p.blocks.map((b) => b.size)),
+                     kinds: { ...doc.style.sizes } };
   const quarter = (v) => Math.round(v * 4) / 4;
   const apply = (k) => {
     doc.parts.forEach((p, i) => { p.size = quarter(original.parts[i] * k); p.blocks.forEach((b, j) => { if (original.items[i][j]) b.size = quarter(original.items[i][j] * k); }); });
     doc.style.noteSize = quarter(original.note * k);
+    for (const [kind, v] of Object.entries(original.kinds)) doc.style.sizes[kind] = quarter(v * k);
   };
   const measure = async () => {                 // pages of content, with no blank pages added
     const kept = [doc.wholeSheets, doc.extraSheets];

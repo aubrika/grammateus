@@ -23,6 +23,10 @@ export const PAPERS = {
   a5: { name: "A5", w: 148 / 25.4, h: 210 / 25.4, sheet: "A4", shown: "148 × 210 mm" },
 };
 
+// The kinds of item that can also be given their own text size. Side notes have theirs
+// already, and the cover's words are sized to its design.
+export const SIZE_KINDS = ["section", "heading", "text", "hymn", "roster", "columns"];
+
 export const BLOCK_NAMES = {
   section: "Section title",
   heading: "Heading",
@@ -72,8 +76,11 @@ export function normalize(doc) {
   // `fonts` holds a font for each kind of item ("heading", "text", "note" and so on); a kind
   // that is not listed uses the bulletin's font
   const fonts = Object.fromEntries(Object.entries(doc.style?.fonts || {}).filter(([, v]) => v));
+  // `sizes` likewise holds a text size in points for each kind; a kind not listed uses the
+  // size of the part it is in
+  const sizes = Object.fromEntries(Object.entries(doc.style?.sizes || {}).filter(([k, v]) => SIZE_KINDS.includes(k) && v >= 5 && v <= 60));
   const paper = PAPERS[doc.style?.paper] ? doc.style.paper : "letter";
-  doc.style = { font: doc.style?.font || "EB Garamond", noteSize: doc.style?.noteSize || 12, fonts, paper,
+  doc.style = { font: doc.style?.font || "EB Garamond", noteSize: doc.style?.noteSize || 12, fonts, sizes, paper,
                 ...(doc.style?.whiteSide ? { whiteSide: true } : {}) };
   doc.wholeSheets = doc.wholeSheets !== false;
   doc.meta = { title: "", sunday: "", date: "", ...(doc.meta || {}) };

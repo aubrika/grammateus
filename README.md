@@ -47,6 +47,8 @@ way but have not yet been tried on those systems.
 - **Any font.** A good open font comes with the program, so a bulletin looks the same
   on every computer. A church can choose another font it has installed: for the whole
   bulletin, for one kind of item (all headings, all side notes), or for a single item.
+  Text sizes work the same way: each part has its size, and a kind of item (all
+  headings, say) or a single item can be given its own.
 - **Make PDF** writes the pages in reading order, ready for a copier that folds and
   staples.
 - **Paper sizes.** Letter pages (printed on 11 × 17 in sheets) by default; half letter,
