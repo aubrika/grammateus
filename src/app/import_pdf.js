@@ -9,6 +9,7 @@
 
 import * as pdfjs from "../../node_modules/pdfjs-dist/build/pdf.min.mjs";
 import { PAPERS, normalize } from "./doc.js";
+import { followPointers } from "../pdf_pictures.mjs";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("../../node_modules/pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
@@ -677,7 +678,13 @@ export async function inspectPdf(data, progress = async () => {}) {
   // a PDF made by this program carries the bulletin inside it; nothing needs working out
   const attached = (await pdf.getAttachments().catch(() => null))?.["bulletin.json"];
   if (attached?.content) {
-    try { return { embedded: normalize(JSON.parse(new TextDecoder().decode(attached.content))), count: pdf.numPages }; } catch { /* fall through */ }
+    try {
+      const doc = JSON.parse(new TextDecoder().decode(attached.content));
+      // its pictures are those on the pages: take them from there
+      await progress("Taking the pictures from the PDF…", 0.3);
+      doc.images = await followPointers(await pdf.getData(), doc.images || {});
+      return { embedded: normalize(doc), count: pdf.numPages };
+    } catch { /* fall through: read the pages instead */ }
   }
   // a few pages at a time, so the reader prepares the next pages while this one is unpacked
   const pages = new Array(pdf.numPages);

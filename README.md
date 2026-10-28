@@ -69,7 +69,10 @@ way but have not yet been tried on those systems.
   AppImage; on a Mac and with the Linux `.deb` package it says a newer version is ready to
   download and opens the downloads page.
 - **Its own PDFs reopen exactly.** Every PDF the program makes carries the editable
-  bulletin inside it, so a bulletin can be recovered from its PDF with nothing lost.
+  bulletin inside it, so a bulletin can be recovered from its PDF with nothing lost. The
+  pictures are not stored twice: the copy inside points at the pictures on the pages, so the
+  PDF is hardly larger than the pages alone. If a PDF has been changed by another program
+  so that the pictures cannot be found, it is read from its pages instead.
 
 ## Run it
 
