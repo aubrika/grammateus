@@ -53,7 +53,7 @@ function blockElement(block, src) {
     }
     case "columns": {
       const row = el("div", "columns");
-      for (const html of block.columns || []) row.append(el("div", "", html));
+      for (const [i, html] of (block.columns || []).entries()) row.append(el("div", (block.shaded || []).includes(i) ? "shaded" : "", html));
       if (block.picture && row.lastChild) {           // a small picture under the last column
         const img = el("img", "under");
         img.src = src(block.picture);
@@ -63,7 +63,7 @@ function blockElement(block, src) {
     }
     default: {
       // a blank line inside a block is a paragraph gap, set closer than a full line
-      const p = el("p", block.align === "center" ? "text center" : "text", (block.html || "").replace(/<br>\s*<br>/g, '<span class="gap"></span>'));
+      const p = el("p", `text${block.align === "center" ? " center" : ""}${block.shaded ? " shaded" : ""}`, (block.html || "").replace(/<br>\s*<br>/g, '<span class="gap"></span>'));
       if (block.float) {                     // a picture set into the side of the paragraph
         const img = el("img", block.floatSide === "left" ? "float left" : "float");
         img.src = src(block.float);
@@ -216,6 +216,7 @@ async function flow(part, kind, pages, firstNumber, src, folio = true, before = 
     if (font) node.style.fontFamily = family(font);
     const size = block.size || sizes[block.type];           // this item's own text size, or its kind's
     if (size) node.style.fontSize = `${size}pt`;
+    if (block.leading) node.style.lineHeight = String(block.leading);   // its own line spacing
     const pictures = [...node.querySelectorAll("img")];
     await Promise.all(pictures.map((i) => i.decode().catch(() => {})));
     let first = true;
@@ -245,6 +246,19 @@ async function flow(part, kind, pages, firstNumber, src, folio = true, before = 
           await node.querySelector("img").decode().catch(() => {});
           next();
           continue;
+        }
+      }
+
+      if (block.type === "text" && block.float && first) {
+        // a picture set into a short paragraph near the foot of a page may be made a little
+        // smaller rather than take the paragraph over to the next page
+        const img = node.querySelector("img.float");
+        const over = node.getBoundingClientRect().bottom - cur.main.getBoundingClientRect().bottom;
+        const scale = (img.getBoundingClientRect().height - over - 1) / img.getBoundingClientRect().height;
+        if (scale >= 0.7 && scale < 1) {
+          img.style.width = `${img.getBoundingClientRect().width * scale}px`;
+          if (fits(cur.main)) { cur.placed.push({ node, block, first }); break; }
+          img.style.width = block.floatWidth || "";
         }
       }
 

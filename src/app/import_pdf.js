@@ -13,6 +13,7 @@ import { PAPERS, normalize } from "./doc.js";
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("../../node_modules/pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
 const IN = 72;
+const LEADING = 1.127;                  // the usual line spacing, as set in bulletin.css
 const escapeHtml = (t) => t.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
 const median = (v) => { const s = [...v].sort((a, b) => a - b); return s.length ? s[s.length >> 1] : 0; };
 
@@ -61,7 +62,8 @@ async function readPage(pdf, number) {
     if (!fontStyle.has(name)) {
       let real = "";
       try { real = page.commonObjs.has(name) ? page.commonObjs.get(name).name || "" : ""; } catch { real = ""; }
-      fontStyle.set(name, { bold: /bold|black|heavy/i.test(real), italic: /italic|oblique/i.test(real), symbol: /symbol|dingbat|wingding/i.test(real) });
+      fontStyle.set(name, { bold: /bold|black|heavy/i.test(real), italic: /italic|oblique/i.test(real), symbol: /symbol|dingbat|wingding/i.test(real),
+                            font: real });
     }
     return fontStyle.get(name);
   };
@@ -75,27 +77,86 @@ async function readPage(pdf, number) {
                  size, ...styleOf(item.fontName) });
   }
 
-  // pictures, with where they were drawn
+  // pictures, with where they were drawn, and the lines and shaded boxes drawn on the page
   const images = [];
+  const shapes = [];
   const stack = [];
-  let ctm = [1, 0, 0, 1, 0, 0];
+  // the drawing state: position and scale, colour, line width, and the area drawing is clipped to
+  let state = { ctm: [1, 0, 0, 1, 0, 0], fill: "#000000", lineWidth: 1, clip: null };
+  let clipping = false;
+  // a box in the current drawing space, as a box on the page measured from the top
+  const onPage = ([x0, y0, x1, y1], m = state.ctm) => {
+    const xs = [], ys = [];
+    for (const [x, y] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]) { xs.push(m[0] * x + m[2] * y + m[4]); ys.push(m[1] * x + m[3] * y + m[5]); }
+    return { left: Math.min(...xs), right: Math.max(...xs), top: height - Math.max(...ys), bottom: height - Math.min(...ys) };
+  };
+  const within = (a, b) => (b ? { left: Math.max(a.left, b.left), right: Math.min(a.right, b.right), top: Math.max(a.top, b.top), bottom: Math.min(a.bottom, b.bottom) } : a);
   const { OPS } = pdfjs;
   for (let i = 0; i < ops.fnArray.length; i++) {
     const fn = ops.fnArray[i], args = ops.argsArray[i];
-    if (fn === OPS.save) stack.push(ctm);
-    else if (fn === OPS.restore) ctm = stack.pop() || ctm;
-    else if (fn === OPS.transform) ctm = multiply(ctm, args);
-    else if (fn === OPS.paintFormXObjectBegin) { stack.push(ctm); if (args[0]) ctm = multiply(ctm, args[0]); }
-    else if (fn === OPS.paintFormXObjectEnd) ctm = stack.pop() || ctm;
+    if (fn === OPS.save) stack.push({ ...state });
+    else if (fn === OPS.restore) state = stack.pop() || state;
+    else if (fn === OPS.transform) state.ctm = multiply(state.ctm, args);
+    else if (fn === OPS.setFillRGBColor) state.fill = args[0];
+    else if (fn === OPS.setLineWidth) state.lineWidth = args[0];
+    else if (fn === OPS.paintFormXObjectBegin) { stack.push({ ...state }); if (args[0]) state.ctm = multiply(state.ctm, args[0]); }
+    else if (fn === OPS.paintFormXObjectEnd) state = stack.pop() || state;
+    else if (fn === OPS.clip || fn === OPS.eoClip) clipping = true;          // applies to the path that follows
+    else if (fn === OPS.constructPath && args[2]) {
+      const box = onPage(args[2]);
+      if (clipping) { state.clip = within(box, state.clip); clipping = false; }
+      if (args[0] === OPS.fill || args[0] === OPS.eoFill || args[0] === OPS.stroke) {
+        // only the box around the path is needed: enough to tell a line or a shaded box
+        const stroke = args[0] === OPS.stroke;
+        shapes.push({ stroke, fill: stroke ? null : state.fill, width: stroke ? state.lineWidth * Math.abs(state.ctm[0] || 1) : 0, ...box });
+      }
+    }
     else if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject) {
       const image = fn === OPS.paintImageXObject ? await getObject(page, args[0]) : args[0];
       if (!image || !image.width) continue;
-      const w = Math.abs(ctm[0]) || Math.abs(ctm[1]), h = Math.abs(ctm[3]) || Math.abs(ctm[2]);
-      const x = Math.min(ctm[4], ctm[4] + ctm[0]), yTop = Math.max(ctm[5], ctm[5] + ctm[3]);
-      images.push({ left: x, top: height - yTop, width: w, height: h, canvas: toCanvas(image) });
+      // a picture is often drawn larger than the part of it that shows (Word crops this way);
+      // keep only what shows
+      const whole = onPage([0, 0, 1, 1]), seen = within(whole, state.clip);
+      if (seen.right - seen.left < 1 || seen.bottom - seen.top < 1) continue;
+      let canvas = toCanvas(image);
+      const cut = { x: (seen.left - whole.left) / (whole.right - whole.left), y: (seen.top - whole.top) / (whole.bottom - whole.top),
+                    w: (seen.right - seen.left) / (whole.right - whole.left), h: (seen.bottom - seen.top) / (whole.bottom - whole.top) };
+      if (cut.w < 0.995 || cut.h < 0.995) {
+        const part = document.createElement("canvas");
+        part.width = Math.max(1, Math.round(cut.w * canvas.width));
+        part.height = Math.max(1, Math.round(cut.h * canvas.height));
+        part.getContext("2d").drawImage(canvas, Math.round(cut.x * canvas.width), Math.round(cut.y * canvas.height), part.width, part.height, 0, 0, part.width, part.height);
+        canvas = part;
+      }
+      images.push({ left: seen.left, top: seen.top, width: seen.right - seen.left, height: seen.bottom - seen.top, canvas });
     }
   }
-  return { number, width: view.width, height, texts, images };
+  return { number, width: view.width, height, texts, images, shapes };
+}
+
+// Lines drawn across a page: a stroke, or a thin filled bar, wide enough to divide the page.
+function drawnRules(page) {
+  return page.shapes.filter((s) => s.bottom - s.top < 3.5 && s.right - s.left > page.width * 0.3)
+    .sort((a, b) => a.top - b.top)
+    .filter((s, i, all) => !i || s.top - all[i - 1].top > 3);       // a line drawn twice is one line
+}
+
+// Boxes filled with grey (not white, not black) that are big enough to hold text.
+const isGrey = (colour) => {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(colour || "");
+  if (!m) return false;
+  const [r, g, b] = m.slice(1).map((v) => parseInt(v, 16));
+  return Math.max(r, g, b) - Math.min(r, g, b) < 16 && r > 120 && r < 245;
+};
+const greyBoxes = (page) => page.shapes.filter((s) => !s.stroke && isGrey(s.fill) && s.right - s.left > 0.6 * IN && s.bottom - s.top > 0.4 * IN);
+
+// The font a PDF names, as the family it belongs to: "ABCDEF+Garamond-Bold" and
+// "Garamond-8216" are both Garamond, "TimesNewRomanPS-BoldMT" is Times New Roman.
+export function fontFamily(name) {
+  return String(name || "").replace(/^[A-Z]{6}\+/, "").replace(/[-,_]\d+$/, "")
+    .replace(/[-,](Bold|Italic|Oblique|Regular|Roman|Book|Medium|Semibold|SemiBold|Black|Light|Heavy|Demi|It|BoldItalic|BoldOblique)+(MT|PS)?$/i, "")
+    .replace(/(PS)?MT$|PS$/, "").replace(/(Bold|Italic)+$/, "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").trim();
 }
 
 // ---------------------------------------------------------------- text
@@ -109,6 +170,13 @@ function spaced(parts) {
     const need = prev && gap > Math.min(p.size, prev.size) * 0.16 && !/\s$/.test(prev.text) && !/^\s/.test(p.text);
     return need ? { ...p, text: " " + p.text } : p;
   });
+}
+
+// About how wide the first word of a line is.
+function firstWord(line) {
+  const p = line.parts.find((q) => q.text.trim());
+  const text = p.text.trimStart(), word = text.split(/\s/)[0];
+  return (p.right - p.left) * word.length / Math.max(1, text.length);
 }
 
 // Group fragments into lines. Body-size fragments define the lines by their baseline; smaller
@@ -194,7 +262,8 @@ function isHeading(line, body) {
 function classify(line, body) {
   const parts = line.parts.filter((p) => p.text.trim());
   if (parts[0].size >= body * 1.2 && parts[0].bold && line.text.includes("+")) {
-    const t = smallCapsText(parts, body).replace(/\+/g, "").trim();
+    // its small capitals are small next to its own capitals, not next to the body text
+    const t = smallCapsText(parts, Math.max(...parts.map((p) => p.size)) * 1.01).replace(/\+/g, "").trim();
     return { type: "section", text: t.replace(/\b[a-z]/g, (c) => c.toUpperCase()) };
   }
   if (isHeading(line, body)) {
@@ -250,13 +319,22 @@ function paragraphs(lines, colLeft, colRight, body, { special = true, fine = fal
     const small = fine && b._lines.every((l) => sizeClass(lineSize(l), body) === "sm");
     if (small) b.size = Math.round(median(b._lines.map(lineSize)) * 2) / 2;
     b._lines.forEach((line, k) => {
-      // a line that stops well short of the margin ended on purpose
-      if (k) html += line._break || b._lines[k - 1].right < colRight - 0.22 * width ? "<br>" : " ";
+      // a line that stops well short of the margin ended on purpose; on a page of prose, so
+      // does one with room left for the first word of the next (an address beside a logo)
+      if (k) html += line._break || b._lines[k - 1].right < colRight - 0.22 * width || (fine && b._lines[k - 1].right + firstWord(line) + 6 < colRight) ? "<br>" : " ";
       html += runHtml(line.parts, small ? b.size : body, { sizes: fine });
     });
     b.html = html.replace(/<\/b>(\s*(?:<br>)?\s*)<b>/g, "$1");
     b._full = b._lines.at(-1).right > colRight - 0.12 * width;
-    b._center = b._lines.every((l) => Math.abs((l.left + l.right) / 2 - mid) < 11 && l.right - l.left < 0.9 * width);
+    // a paragraph set with its lines closer together or further apart than usual keeps its spacing
+    const steps = b._lines.slice(1).map((l, k) => l.base - b._lines[k].base);
+    const leading = steps.length >= 2 ? median(steps) / (small ? b.size : body) : 0;
+    if (leading > 0.9 && leading < 2 && Math.abs(leading - LEADING) > 0.03) b.leading = Math.round(leading * 100) / 100;
+    b._left = Math.min(...b._lines.map((l) => l.left));
+    b._right = Math.max(...b._lines.map((l) => l.right));
+    // centred when every line is; a line that fills the width could be either, so at least one
+    // must be short enough to show it
+    b._center = b._lines.every((l) => Math.abs((l.left + l.right) / 2 - mid) < 11) && b._lines.some((l) => l.right - l.left < 0.9 * width);
   }
   return blocks;
 }
@@ -296,10 +374,38 @@ function stitch(group) {
   const d = probe.getContext("2d").getImageData(0, 0, 32, 32).data;
   let colour = 0;
   for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - d[i + 1]) > 24 || Math.abs(d[i + 1] - d[i + 2]) > 24) colour++;
-  return colour > 40 && canvas.width * canvas.height > 250000 ? canvas.toDataURL("image/jpeg", 0.88) : canvas.toDataURL("image/png");
+  const jpeg = canvas.toDataURL("image/jpeg", 0.88);
+  if (colour > 40 && canvas.width * canvas.height > 250000) return jpeg;
+  // a grey drawing or scan that was a JPEG in the PDF is often three times the size as PNG;
+  // crisp black-and-white music is not, and stays sharp as PNG
+  const png = canvas.toDataURL("image/png");
+  return jpeg.length < png.length * 0.6 ? jpeg : png;
 }
 
 // ---------------------------------------------------------------- pages of each kind
+
+// The font most of the text on these pages is set in, as the PDF names it.
+function mainFont(pages) {
+  const count = new Map();
+  for (const p of pages) for (const t of p.texts) {
+    if (t.symbol || !t.font) continue;
+    const name = fontFamily(t.font);
+    count.set(name, (count.get(name) || 0) + t.text.length);
+  }
+  return [...count.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+}
+
+// The name of the installed font a PDF's font name stands for. Where the computer's fonts
+// cannot be listed, the name read from the PDF is the best guess.
+async function installedName(family) {
+  const squeeze = (n) => n.toLowerCase().replace(/[^a-z0-9]/g, "");
+  try {
+    const local = await window.queryLocalFonts();
+    const match = local.find((f) => squeeze(f.family) === squeeze(family)) || local.find((f) => squeeze(fontFamily(f.postscriptName)) === squeeze(family));
+    if (match) return match.family;
+  } catch { /* not allowed, or not offered: keep the guess */ }
+  return family;
+}
 
 function bodySize(pages) {
   const count = new Map();
@@ -346,8 +452,19 @@ async function servicePages(pages, body, addImage, tick) {
     const sidePictures = [];
     for (const g of pictureGroups(page.images)) {
       if (inMain(g.left + g.width / 2)) {
-        const width = Math.min(100, Math.round(100 * g.width / (mainR - mainL - 0.11 * IN)));
-        pageBlocks.push({ type: "image", _group: g, _top: g.top, _bottom: g.bottom, ...(width < 92 ? { width: `${width}%` } : {}) });
+        // the width it was printed at: music set a little narrower than the column is also a
+        // little shorter, and over a page that decides what fits
+        const width = Math.min(100, Math.round(1000 * g.width / (mainR - mainL - 0.11 * IN)) / 10);
+        // a small picture printed beside a paragraph is set into it, as it was
+        const beside = width < 55 && main.find((b) => b.type === "text" && !b.float && b._top < g.bottom && b._bottom > g.top
+          && (b._right < g.left + 4 || b._left > g.left + g.width - 4));
+        if (beside) {
+          Object.assign(beside, { float: addImage(stitch(g)), floatWidth: `${Math.round(width)}%`, ...(beside._left > g.left ? { floatSide: "left" } : {}) });
+          continue;
+        }
+        const middle = (mainL + mainR) / 2, off = g.left + g.width / 2 - middle;
+        pageBlocks.push({ type: "image", _group: g, _top: g.top, _bottom: g.bottom, ...(width < 99 ? { width: `${width}%` } : {}),
+                          ...(width < 80 && Math.abs(off) > 0.15 * (mainR - mainL) ? { align: off > 0 ? "right" : "left" } : {}) });
       } else {
         sidePictures.push({ top: g.top, ref: addImage(stitch(g)) });
       }
@@ -358,7 +475,8 @@ async function servicePages(pages, body, addImage, tick) {
       if (!pageBlocks.length) continue;
       const cost = (b) => (b._top <= note._top + 9 ? Math.abs(b._top - note._top) : 1e6 + b._top);
       const anchor = pageBlocks.reduce((best, b) => (cost(b) < cost(best) ? b : best));
-      let text = note.html.replace(/^(<i>)?Hymn Information/, "$1<u>Hymn Information</u><br>");
+      // the title is on a line of its own already; it needs no second break under it
+      let text = note.html.replace(/^(<i>)?Hymn Information\s*(<\/i>)?\s*(?:<br>)?\s*/, (_, open = "", close = "") => `${open}<u>Hymn Information</u><br>${close}`);
       if ((text.match(/<i>/g) || []).length === 1) text = text.replace(/^<i>([\s\S]*)<\/i>$/, "$1");   // notes are italic anyway
       anchor.note = anchor.note ? `${anchor.note}<br><br>${text}` : text;
       note._anchor = anchor;
@@ -470,10 +588,20 @@ function fullWidthPage(page, addImage, { announcements = false, fine = false } =
       for (const p of l.parts) if (p.text.trim()) cols[run.edges.filter((e) => p.left >= e - 6).length].push(p);
       used.add(l);
     }
-    const html = cols.map((parts) => linesOf(parts.map((p) => ({ ...p, text: p.text.trimStart() })), body).map((l) => runHtml(l.parts, body)).join("<br>"));
+    // on a page that keeps its sizes, columns in clearly smaller or larger type keep theirs
+    const own = Math.round(median(run.lines.flatMap((l) => l.parts).filter((p) => p.text.trim()).map((p) => p.size)) * 2) / 2;
+    const size = fine && sizeClass(own, body) ? own : body;
+    const html = cols.map((parts) => linesOf(parts.map((p) => ({ ...p, text: p.text.trimStart() })), size).map((l) => runHtml(l.parts, size)).join("<br>"));
     if (html.filter(Boolean).length < 2) { run.lines.forEach((l) => used.delete(l)); continue; }
-    blocks.push({ type: "columns", columns: html.filter((h, i) => h || i < 2), _top: run.lines[0].top, _bottom: run.lines.at(-1).base });
+    const kept = cols.filter((_, i) => html[i] || i < 2);
+    blocks.push({ type: "columns", columns: html.filter((h, i) => h || i < 2), ...(size !== body ? { size } : {}), _top: run.lines[0].top, _bottom: run.lines.at(-1).base,
+                  _cols: kept.map((parts) => (parts.length ? [Math.min(...parts.map((p) => p.left)), Math.max(...parts.map((p) => p.right))] : null)) });
   }
+  // lines drawn across the page are kept where they are; a page without any has its
+  // announcements divided by a line before each one
+  const rules = drawnRules(page);
+  for (const r of rules) blocks.push({ type: "rule", _top: r.top, _bottom: r.top });
+  const ruleBetween = (above, below) => rules.some((r) => r.top > above - 2 && r.top < below + 2);
   // everything else, as paragraphs
   const rest = paragraphs(lines.filter((l) => !used.has(l)), left, right, body, { special: false, fine });
   let previousBold = false;
@@ -482,42 +610,55 @@ function fullWidthPage(page, addImage, { announcements = false, fine = false } =
     const last = blocks.filter((b) => b.type === "text" && b._flow).at(-1);
     if (announcements && p._center && bold && !p.html.includes("<br>") && p.html.replace(/<[^>]+>/g, "").length < 60) {
       blocks.push({ type: "heading", text: p.html.replace(/<[^>]+>/g, "").trim(), stand: false, _top: p._top, _bottom: p._bottom });
-    } else if (announcements && last && !(bold && !previousBold) && p._top - last._bottom < 40) {
+    } else if (announcements && last && !(bold && !previousBold) && p._top - last._bottom < 40 && !ruleBetween(last._bottom, p._top)) {
       last.html += "<br><br>" + p.html;                  // one announcement is one block
       last._bottom = p._bottom;
     } else {
-      if (announcements && bold && !previousBold && blocks.some((b) => b.type === "text")) blocks.push({ type: "rule", _top: p._top - 1, _bottom: p._top - 1 });
-      blocks.push({ type: "text", html: p.html, align: p._center ? "center" : "left", ...(p.size ? { size: p.size } : {}), _flow: announcements, _top: p._top, _bottom: p._bottom });
+      if (announcements && !rules.length && bold && !previousBold && blocks.some((b) => b.type === "text")) blocks.push({ type: "rule", _top: p._top - 1, _bottom: p._top - 1 });
+      blocks.push({ type: "text", html: p.html, align: p._center ? "center" : "left", ...(p.size ? { size: p.size } : {}), ...(p.leading ? { leading: p.leading } : {}), _flow: announcements,
+                    _top: p._top, _bottom: p._bottom, _left: p._left, _right: p._right });
     }
     previousBold = bold && /<\/b>\s*$/.test(p.html);
+  }
+  // text printed on a grey box keeps the grey behind it
+  for (const box of greyBoxes(page)) {
+    const inside = (l, r, t, b) => l >= box.left - 3 && r <= box.right + 3 && t >= box.top - 3 && b <= box.bottom + 3;
+    for (const b of blocks) {
+      if (b.type === "columns") {
+        const shaded = b._cols.flatMap((c, i) => (c && inside(c[0], c[1], b._top, Math.min(b._bottom, box.bottom)) ? [i] : []));
+        if (shaded.length) b.shaded = shaded;
+      } else if (b.type === "text" && inside(b._left, b._right, b._top, b._bottom)) b.shaded = true;
+    }
   }
   // pictures: set into the paragraph beside them, or placed on their own
   for (const g of pictureGroups(page.images)) {
     const ref = addImage(stitch(g));
     const beside = announcements && blocks.find((b) => b.type === "text" && b._top - 22 <= g.top && g.top <= b._bottom && g.left > page.width * 0.4);
+    // text that starts beside a picture on its left, such as an address beside a logo
+    const after = !beside && blocks.find((b) => b.type === "text" && !b.float && b._left > g.left + g.width - 4 && b._top < g.bottom && b._bottom > g.top);
     const width = Math.max(10, Math.min(100, Math.round(100 * g.width / (page.width - IN))));
     // a small picture in the empty foot of a short last column belongs to those columns
     const columns = blocks.find((b) => b.type === "columns" && !b.picture && g.top >= b._top && g.top <= b._bottom + 30 && g.left > page.width * 0.3);
     if (columns) columns.picture = ref;
     else if (beside && !beside.float) { beside.float = ref; beside.floatWidth = `${width}%`; }
-    else blocks.push({ type: "image", src: ref, width: `${width}%`, split: false, _top: g.top, _bottom: g.bottom,
+    else if (after) Object.assign(after, { float: ref, floatSide: "left", floatWidth: `${width}%` });
+    else blocks.push({ type: "image", src: ref, width: `${width}%`, split: false, _top: g.top, _bottom: g.bottom, _left: g.left,
                        ...(g.left > page.width * 0.55 ? { align: "right" } : g.left + g.width < page.width * 0.45 ? { align: "left" } : {}) });
   }
   return blocks.sort((a, b) => a._top - b._top);
 }
 
-// The welcome and back pages hold simple items, not flowing blocks.
-function asItems(blocks) {
-  const items = [];
+// Pictures printed side by side become one row of pictures.
+function pictureRows(blocks) {
+  const out = [];
   for (const b of blocks) {
-    if (b.type === "text") items.push({ html: b.html, align: b.align || "left" });
-    else if (b.type === "columns") items.push({ columns: b.columns });
-    else if (b.type === "heading") items.push({ html: `<b>${b.text}</b>`, align: "center" });
-    else if (b.type === "image") { if (items.at(-1)?.logos && b._top - items.at(-1)._bottom < 30) items.at(-1).logos.push(b.src); else items.push({ logos: [b.src], _bottom: b._bottom }); }
-    else if (b.type === "roster") items.push({ columns: [b.rows.map((r) => r.left).join("<br>"), b.rows.map((r) => r.right).join("<br>")] });
-    if (items.at(-1)?.logos) items.at(-1)._bottom = b._bottom;
+    const row = out.at(-1);
+    if (b.type === "image" && (row?.type === "image" || row?.type === "logos") && b._top < row._bottom - 4) {
+      const pictures = [...(row._pictures || [row]), b].sort((x, y) => x._left - y._left);         // left to right
+      out[out.length - 1] = { type: "logos", images: pictures.map((x) => x.src), _pictures: pictures, _top: row._top, _bottom: Math.max(row._bottom, b._bottom) };
+    } else out.push(b);
   }
-  return items.map(({ _bottom, ...item }) => item);
+  return out;
 }
 
 const strip = (blocks) => blocks.map((b) => Object.fromEntries(Object.entries(b).filter(([k]) => !k.startsWith("_"))));
@@ -562,7 +703,7 @@ export async function inspectPdf(data, progress = async () => {}) {
 export async function buildBulletin({ pages, count }, first, last, progress = async () => {}) {
   // filled in as the four lists of the first file format, then turned into parts at the end
   const doc = { style: {}, meta: {}, cover: {}, welcome: [], welcomeLogo: "", service: [], extras: [], back: [], images: {} };
-  let welcomeBlocks = null, welcomeSize = 0;
+  let welcomeBlocks = null, welcomeSize = 0, backBlocks = null, backSize = 0;
   let n = 0;
   const addImage = (dataUrl) => { const id = `p${++n}`; doc.images[id] = dataUrl; return `img:${id}`; };
   const at = (number) => pages[number - 1];
@@ -612,7 +753,9 @@ export async function buildBulletin({ pages, count }, first, last, progress = as
   }
   if (backNumber) {
     await progress("Rebuilding the back page…", 0.98);
-    doc.back = asItems(fullWidthPage(at(backNumber), addImage));
+    // like the welcome page, it keeps its text sizes and a picture set beside its text
+    backBlocks = pictureRows(fullWidthPage(at(backNumber), addImage, { fine: true }));
+    backSize = bodySize([at(backNumber)]);
   }
   doc.style.bodySize = Math.round(body * 2) / 2;
   const noteSizes = doc.service.length ? bodySize(pages.slice(first - 1, last).map((p) => {
@@ -626,7 +769,13 @@ export async function buildBulletin({ pages, count }, first, last, progress = as
   const paper = Object.entries(PAPERS).find(([, p]) => Math.abs(p.w * 72 - at(1).width) < 6 && Math.abs(p.h * 72 - at(1).height) < 6);
   if (paper) doc.style.paper = paper[0];
   const made = normalize(doc);
+  // the fonts the PDF was set in; a font not on this computer falls back to the program's own
+  const font = mainFont(pages.slice(first - 1, last));
+  if (font && !/^EB Garamond$/i.test(font)) made.style.font = await installedName(font);
+  const coverFont = mainFont([cover]);
+  if (coverFont && coverFont !== font) made.style.fonts.cover = await installedName(coverFont);
   if (welcomeBlocks) Object.assign(made.parts[0], { blocks: strip(welcomeBlocks), size: Math.round(welcomeSize * 2) / 2 || 13 });
+  if (backBlocks) Object.assign(made.parts.at(-1), { blocks: strip(backBlocks), size: Math.round(backSize * 2) / 2 || 14 });
   // the service's size is the bulletin's default; only parts that differ keep a size of their own
   for (const part of made.parts) if (part.size === made.style.size) delete part.size;
   return made;

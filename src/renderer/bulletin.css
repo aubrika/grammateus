@@ -20,7 +20,7 @@
 
 * { box-sizing: border-box; }
 /* set here, not on :root, so they follow a paper size set on the pages' container */
-.page { --edge: calc(0.25in * var(--scale)); --top: calc(0.5in * var(--vscale)); --bottom: calc(0.6in * var(--vscale));
+.page { --edge: calc(0.25in * var(--scale)); --top: calc(0.5in * var(--vscale)); --bottom: calc(0.5in * var(--vscale));
         --side-w: calc(2.5in * var(--scale)); }
 .page { position: relative; width: var(--page-w); height: var(--page-h); background: #fff; overflow: hidden;
         break-after: page; font-family: var(--serif); font-size: 15pt; line-height: 1.127; color: #000;
@@ -44,7 +44,7 @@
 .main img.float { float: right; width: 34%; margin: 2pt 0 4pt 10pt; }
 .main img.float.left { float: left; margin: 2pt 10pt 4pt 0; }
 .main .text.center { text-align: center; }
-.main .logos { display: flex; align-items: center; justify-content: center; gap: calc(0.3in * var(--scale)); flex-wrap: wrap; }
+.main .logos { clear: both; display: flex; align-items: center; justify-content: center; gap: calc(0.3in * var(--scale)); flex-wrap: wrap; }
 .main .logos img { max-height: calc(1.2in * var(--scale)); max-width: calc(3.3in * var(--scale)); }
 /* a picture on the right stays within its own paragraph; one on the left (a small emblem
    beside a title) lets the paragraphs after it run alongside */
@@ -60,9 +60,11 @@
 /* columns share the width equally, but none is made narrower than its longest word */
 .columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(min-content, 1fr); gap: 0.25in; align-items: start; }
 .columns > div { min-width: 0; overflow-wrap: break-word; }
+/* text set on grey, like a side note on a page without the side column */
+.columns > div.shaded, .main .text.shaded { background: var(--grey); padding: 4pt 6pt; }
 .columns img.under { display: block; width: 55%; margin: 0.15in auto 0; }
 
-.page .folio { position: absolute; top: calc(var(--page-h) - 0.5in * var(--vscale)); left: 0; right: 0; text-align: center; font-size: 12pt; line-height: 1; }
+.page .folio { position: absolute; top: calc(var(--page-h) - 0.45in * var(--vscale)); left: 0; right: 0; text-align: center; font-size: 12pt; line-height: 1; }
 
 /* Paragraphs are set 6pt apart; a heading sits directly on the text it introduces. */
 .main > * { margin: 6pt 0 0; }

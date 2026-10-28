@@ -441,8 +441,14 @@ function columnsEditor(owner) {
     if (owner.columns.length > n) owner.columns = [...owner.columns.slice(0, n - 1), owner.columns.slice(n - 1).filter(Boolean).join("<br>")];
     changed(); drawForm();
   });
+  // grey behind a column, as behind a side note
+  const shade = (i) => checkbox("Grey behind this column", (owner.shaded || []).includes(i), (v) => {
+    const set = new Set(owner.shaded || []);
+    if (v) set.add(i); else set.delete(i);
+    if (set.size) owner.shaded = [...set].sort(); else delete owner.shaded;
+  });
   return [h("label", {}, "Columns"), count,
-    ...owner.columns.map((html, i) => h("div", { class: "item" }, rich(html, (v) => (owner.columns[i] = v))))];
+    ...owner.columns.map((html, i) => h("div", { class: "item" }, rich(html, (v) => (owner.columns[i] = v)), shade(i)))];
 }
 
 function blockForm(form, p, i) {
@@ -502,7 +508,11 @@ function blockForm(form, p, i) {
   } else {
     form.append(h("label", {}, "Text"), rich(block.html, (v) => (block.html = v)),
       h("p", { class: "hint" }, "Bold is for words everyone says together. Italic is for instructions. Press Shift+Enter for a new line; leave a blank line for a new paragraph."),
-      checkbox("Centred", block.align === "center", (v) => { if (v) block.align = "center"; else delete block.align; }));
+      checkbox("Centred", block.align === "center", (v) => { if (v) block.align = "center"; else delete block.align; }),
+      checkbox("Grey behind it", block.shaded, (v) => { if (v) block.shaded = true; else delete block.shaded; }));
+    const leading = h("input", { type: "number", min: 0.9, max: 2, step: 0.01, value: block.leading || "", placeholder: "1.13" });
+    leading.addEventListener("input", () => { const v = parseFloat(leading.value); if (v >= 0.9 && v <= 2) block.leading = v; else delete block.leading; changed(false); });
+    form.append(h("label", {}, "Line spacing (optional, times the text size)"), leading);
     pictureField(form, "Picture set into this text (optional)", () => block.float, (v) => { if (v) block.float = v; else { delete block.float; delete block.floatSide; delete block.floatWidth; } });
     if (block.float) {
       const side = h("select", {}, ...[["", "On the right"], ["left", "On the left"]].map(([v, t]) => h("option", { value: v, selected: (block.floatSide || "") === v }, t)));
