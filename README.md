@@ -97,12 +97,13 @@ a pre-release: set the version in `package.json`, then
 `git tag v0.2.0 && git push origin v0.2.0`. `npm run dist`, `npm run dist:mac` and
 `npm run dist:linux` build one by hand.
 
-To publish a version for everyone, copy only the installers (`.exe`, `.dmg`, `.deb`,
-`.AppImage`) to a release of `aubrika/grammateus-releases`, then put that release's
-`latest.yml` and `latest-linux.yml` in its `updates/` folder with each file name replaced
-by the full download address of that file, together with the Windows installer's
-`.blockmap` (keep the old ones). Installed copies read those files; the block maps let an
-update download only the parts of the new installer that changed.
+To publish a version for everyone, use the `release` workflow in
+[`aubrika/grammateus-releases`](https://github.com/aubrika/grammateus-releases): write
+what is new in its `notes/<version>.md`, then on its Actions tab run `release` with the
+version and the commit or tag to build. It builds the installers from this repository,
+publishes them as a release there, and points the files in its `updates/` folder at them,
+keeping the Windows installer's block maps. Installed copies read those files within the
+hour; the block maps let an update download only the parts of the new installer that changed.
 
 For development without the desktop shell, the page-making script needs Chromium:
 
