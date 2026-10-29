@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addImage, emptyBulletin, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "../src/app/doc.js";
+import { addImage, canJoin, emptyBulletin, joinRuns, joinText, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "../src/app/doc.js";
 
 test("an empty bulletin has every piece the program relies on", () => {
   const doc = emptyBulletin();
@@ -86,4 +86,32 @@ test("pictures no longer used are dropped when saving; used ones are kept wherev
   pruneImages(doc);
   assert.deepEqual(Object.keys(doc.images).sort(), [src, noteImage, float, picture, logo].map((r) => r.slice(4)).sort());
   assert.ok(!(dropped.slice(4) in doc.images));
+});
+
+test("the paragraphs of a reading join into one text item, and what would be lost stays apart", () => {
+  const t = (html, more = {}) => ({ type: "text", html, ...more });
+  const joined = joinRuns([
+    { type: "heading", text: "First Reading" },
+    t("<sup>9</sup>After this I looked", { note: "About Revelation" }),
+    t("<sup>13</sup>Then one of the elders"),
+    t("Word of God, word of life.<br><b>Thanks be to God.</b>"),
+    t("A paragraph with its own note", { note: "beside it" }),
+    t("Centred", { align: "center" }),
+    t("Smaller", { size: 11 }),
+    t("<b>A title</b>"),
+    t("After the title"),
+  ]);
+  assert.deepEqual(joined.map((b) => b.type === "text" ? b.html.slice(0, 14) : b.type),
+    ["heading", "<sup>9</sup>Af", "A paragraph wi", "Centred", "Smaller", "<b>A title</b>", "After the titl"]);
+  assert.equal(joined[1].html, "<sup>9</sup>After this I looked<br><br><sup>13</sup>Then one of the elders<br><br>Word of God, word of life.<br><b>Thanks be to God.</b>");
+  assert.equal(joined[1].note, "About Revelation", "the first paragraph's note stays with it");
+  assert.equal(canJoin(t("a", { float: "img:x" }), t("b")), true, "a picture in the first is kept where it is");
+  assert.equal(canJoin(t("a"), t("b", { float: "img:x" })), false, "a picture in the second would move");
+  assert.equal(canJoin(t("a", { align: "left" }), t("b")), true, "left is the same as no alignment");
+});
+
+test("joining by hand keeps the second item's side note and picture", () => {
+  const a = { type: "text", html: "one", note: "first" };
+  joinText(a, { type: "text", html: "two", note: "second", float: "img:p", floatWidth: "30%" });
+  assert.deepEqual(a, { type: "text", html: "one<br><br>two", note: "first<br><br>second", float: "img:p", floatSide: undefined, floatWidth: "30%" });
 });

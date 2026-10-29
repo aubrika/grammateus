@@ -63,7 +63,8 @@ installers and how to install them. This repository holds the source code.
   sizes in proportion, so the bulletin keeps its look.
 - **A white side column** can be chosen under Design, to save toner; it is grey by default.
 - **Import a bulletin PDF.** A finished bulletin PDF can be turned back into an
-  editable bulletin in one step: the service in order with its formatting, each side note tied to
+  editable bulletin in one step: the service in order with its formatting (the paragraphs of a
+  reading or a prayer as one item, to edit as one), each side note tied to
   its part, pictures and music in place (cropped as they were printed), and the roster, columns and announcements on
   the pages after the service. It keeps the fonts the PDF was set in, a paragraph's own line
   spacing, the lines drawn across the page and any grey boxes. It works on bulletins laid out the way this program

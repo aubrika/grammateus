@@ -8,7 +8,7 @@
 // Measurements are in points (72 to the inch), with y running down the page.
 
 import * as pdfjs from "../../node_modules/pdfjs-dist/build/pdf.min.mjs";
-import { LEADING, PAPERS, normalize } from "./doc.js";
+import { LEADING, PAPERS, joinRuns, normalize } from "./doc.js";
 import { followPointers } from "../pdf_pictures.mjs";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("../../node_modules/pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
@@ -746,8 +746,9 @@ export async function buildBulletin({ pages, count }, first, last, progress = as
     }
   }
 
-  doc.service = strip(await servicePages(pages.slice(first - 1, last), body, addImage,
-    (message, part) => progress(message, 0.65 + 0.25 * part)));
+  // the paragraphs of a reading or a prayer are one item, so they are edited as one
+  doc.service = joinRuns(strip(await servicePages(pages.slice(first - 1, last), body, addImage,
+    (message, part) => progress(message, 0.65 + 0.25 * part))));
 
   const backNumber = count > last ? count : 0;
   for (let number = last + 1; number < count; number++) {
@@ -755,7 +756,7 @@ export async function buildBulletin({ pages, count }, first, last, progress = as
     const blocks = fullWidthPage(at(number), addImage, { announcements: true });
     if (!blocks.length) continue;
     if (doc.extras.length) doc.extras.push({ type: "pagebreak" });
-    doc.extras.push(...strip(blocks).map(({ align, ...b }) => (b.type === "image" && align ? { ...b, align } : b)));
+    doc.extras.push(...joinRuns(strip(blocks).map(({ align, ...b }) => (b.type === "image" && align ? { ...b, align } : b))));
   }
   if (backNumber) {
     await progress("Rebuilding the back page…", 0.98);
@@ -780,8 +781,8 @@ export async function buildBulletin({ pages, count }, first, last, progress = as
   if (font && !/^EB Garamond$/i.test(font)) made.style.font = await installedName(font);
   const coverFont = mainFont([cover]);
   if (coverFont && coverFont !== font) made.style.fonts.cover = await installedName(coverFont);
-  if (welcomeBlocks) Object.assign(made.parts[0], { blocks: strip(welcomeBlocks), size: Math.round(welcomeSize * 2) / 2 || 13 });
-  if (backBlocks) Object.assign(made.parts.at(-1), { blocks: strip(backBlocks), size: Math.round(backSize * 2) / 2 || 14 });
+  if (welcomeBlocks) Object.assign(made.parts[0], { blocks: joinRuns(strip(welcomeBlocks)), size: Math.round(welcomeSize * 2) / 2 || 13 });
+  if (backBlocks) Object.assign(made.parts.at(-1), { blocks: joinRuns(strip(backBlocks)), size: Math.round(backSize * 2) / 2 || 14 });
   // the service's size is the bulletin's default; only parts that differ keep a size of their own
   for (const part of made.parts) if (part.size === made.style.size) delete part.size;
   return made;

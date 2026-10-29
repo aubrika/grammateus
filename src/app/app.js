@@ -2,7 +2,7 @@
 // in the middle, and a live preview of the pages on the right.
 
 import { layoutBulletin } from "../renderer/layout.js";
-import { BLOCK_NAMES, FONT_KINDS, LEADING, LEADING_RANGE, NOTE_SIZE, PAPERS, SIZE_KINDS, addImage, cleanHtml, emptyBulletin, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "./doc.js";
+import { BLOCK_NAMES, FONT_KINDS, LEADING, LEADING_RANGE, NOTE_SIZE, PAPERS, SIZE_KINDS, addImage, cleanHtml, emptyBulletin, joinText, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "./doc.js";
 
 const $ = (id) => document.getElementById(id);
 const desk = window.desk || null;            // provided by the desktop program; absent in a plain browser
@@ -527,6 +527,12 @@ function blockForm(form, p, i) {
         "You can also type straight into the words on the pages."),
       checkbox("Centred", block.align === "center", (v) => { if (v) block.align = "center"; else delete block.align; }),
       checkbox("Grey behind it", block.shaded, (v) => { if (v) block.shaded = true; else delete block.shaded; }));
+    // the next paragraph of a reading, say, brought into this one so the two are edited as one
+    if (list[i + 1]?.type === "text") {
+      form.append(h("div", { class: "tools" }, h("button", { title: "Make this and the text after it one item, with a blank line between",
+        onclick: () => { joinText(block, list.splice(i + 1, 1)[0]); changed(); drawForm(); } }, "Join with the text below")),
+        h("p", { class: "hint" }, "The text below becomes part of this one, after a blank line; its side note, if it has one, follows this one's."));
+    }
     pictureField(form, "Picture set into this text (optional)", () => block.float, (v) => { if (v) block.float = v; else { delete block.float; delete block.floatSide; delete block.floatWidth; } });
     if (block.float) {
       const side = h("select", {}, ...[["", "On the right"], ["left", "On the left"]].map(([v, t]) => h("option", { value: v, selected: (block.floatSide || "") === v }, t)));

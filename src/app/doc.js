@@ -147,6 +147,41 @@ export function summary(block) {
   }
 }
 
+// Text items one after another (the paragraphs of a reading, say) are easier to edit as
+// one. They join with a blank line between, which is drawn as the same gap as between two
+// items, so the pages do not change.
+const TEXT_SETTINGS = ["align", "size", "leading", "shaded", "font"];
+const isTitle = (html) => /^\s*<b>[\s\S]*<\/b>\s*$/.test(html || "") && (html || "").replace(/<[^>]+>/g, "").length < 80;
+
+// Whether b can join the text item a before it with nothing lost or moved: b has no side note
+// or picture of its own (they would move up beside the top of the joined item), both are set
+// the same way, and neither is a title on its own line.
+export function canJoin(a, b) {
+  if (a?.type !== "text" || b?.type !== "text" || b.note || b.noteImage || b.float) return false;
+  if (TEXT_SETTINGS.some((k) => (k === "align" ? (a[k] || "left") !== (b[k] || "left") : a[k] !== b[k]))) return false;
+  return !isTitle(a.html) && !isTitle(b.html);
+}
+
+// Join text item b onto a. Asked for by hand, it always joins: b's side note follows a's,
+// and its picture is used if a has none.
+export function joinText(a, b) {
+  a.html = [a.html, b.html].filter(Boolean).join("<br><br>");
+  if (b.note) a.note = a.note ? `${a.note}<br><br>${b.note}` : b.note;
+  if (b.noteImage && !a.noteImage) a.noteImage = b.noteImage;
+  if (b.float && !a.float) Object.assign(a, { float: b.float, floatSide: b.floatSide, floatWidth: b.floatWidth });
+  return a;
+}
+
+// Every run of text items that can join, joined.
+export function joinRuns(blocks) {
+  const out = [];
+  for (const b of blocks) {
+    if (canJoin(out.at(-1), b)) joinText(out.at(-1), b);
+    else out.push(b);
+  }
+  return out;
+}
+
 export function move(list, index, by) {
   const to = index + by;
   if (to < 0 || to >= list.length) return index;
