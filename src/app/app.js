@@ -526,7 +526,8 @@ function blockForm(form, p, i) {
         "Blank lines or spaces at the start or end are kept, to move the words (or what follows them) down or across. " +
         "You can also type straight into the words on the pages."),
       checkbox("Centred", block.align === "center", (v) => { if (v) block.align = "center"; else delete block.align; }),
-      checkbox("Grey behind it", block.shaded, (v) => { if (v) block.shaded = true; else delete block.shaded; }));
+      checkbox("Grey behind it", block.shaded, (v) => { if (v) block.shaded = true; else delete block.shaded; }),
+      checkbox("Keep on one page (move it to the next page whole, rather than split it)", block.keep, (v) => { if (v) block.keep = true; else delete block.keep; }));
     // the next paragraph of a reading, say, brought into this one so the two are edited as one
     if (list[i + 1]?.type === "text") {
       form.append(h("div", { class: "tools" }, h("button", { title: "Make this and the text after it one item, with a blank line between",

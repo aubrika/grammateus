@@ -235,14 +235,16 @@ async function flow(part, kind, pages, firstNumber, src, folio = true, before = 
         const full = fitPicture(node);
         const { width, from, to } = node.picture;
         const inch = 96;
-        const room = cur.main.getBoundingClientRect().bottom - node.getBoundingClientRect().top - 0.3 * inch;
+        // "continued on the following page…" is printed below the column, so the music may
+        // run nearly to its foot
+        const room = cur.main.getBoundingClientRect().bottom - node.getBoundingClientRect().top - 0.04 * inch;
         const cut = cutPoints(img).filter((c) => c > from && c < to && (c - from) * full <= room
           && (c - from) * full >= 0.6 * inch && (to - c) * full >= 0.4 * inch).pop();
         if (cut) {
           node.picture.to = cut;
           fitPicture(node);
           cur.placed.push({ node, block, first });
-          cur.main.append(el("div", "continues", "continued on the following page…"));
+          cur.page.append(el("div", "continues", "continued on the following page…"));
           first = false;
           node = pictureElement(node.picture.src, width, cut, to);
           node.dataset.part = kind;
@@ -266,7 +268,10 @@ async function flow(part, kind, pages, firstNumber, src, folio = true, before = 
         }
       }
 
-      if (block.type === "text" && !block.float) {
+      // text kept on one page (the Lord's Prayer, say) moves on whole; it is split only when
+      // it would not fit even on a page of its own, below nothing but its heading
+      const whole = block.keep && !cur.placed.every((x) => KEEP_WITH_NEXT.has(x.block.type));
+      if (block.type === "text" && !block.float && !whole) {
         // keep as many whole lines as fit, but never strand a single line on either side
         const tops = lineTops(node);
         const limit = cur.main.getBoundingClientRect().bottom;

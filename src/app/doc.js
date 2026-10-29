@@ -150,7 +150,7 @@ export function summary(block) {
 // Text items one after another (the paragraphs of a reading, say) are easier to edit as
 // one. They join with a blank line between, which is drawn as the same gap as between two
 // items, so the pages do not change.
-const TEXT_SETTINGS = ["align", "size", "leading", "shaded", "font"];
+const TEXT_SETTINGS = ["align", "size", "leading", "shaded", "font", "keep"];
 const isTitle = (html) => /^\s*<b>[\s\S]*<\/b>\s*$/.test(html || "") && (html || "").replace(/<[^>]+>/g, "").length < 80;
 
 // Whether b can join the text item a before it with nothing lost or moved: b has no side note

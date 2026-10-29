@@ -32,9 +32,10 @@ installers and how to install them. This repository holds the source code.
   added, removed, renamed and reordered. The default arrangement is only a starting
   point.
 - **Pages lay themselves out.** A part is a list of headings, text, hymn titles
-  and pictures. Text breaks between lines, a heading is never left alone at the foot
-  of a page, and music breaks only between lines of music, with "continued on the
-  following page…" added.
+  and pictures. Text breaks between lines, unless it is to be kept on one page (as the
+  Lord's Prayer is when a PDF is imported); a heading is never left alone at the foot
+  of a page; and music breaks only between lines of music, with "continued on the
+  following page…" printed under the column.
 - **Side notes stay beside their part.** Each note belongs to a part of the service
   and is printed next to wherever that part lands.
 - **Pasting is clean.** Text pasted from Word or a web page keeps bold, italic, small

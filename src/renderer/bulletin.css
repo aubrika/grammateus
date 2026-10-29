@@ -34,6 +34,9 @@
               font-size: var(--part-size, 15pt); }
 .page.odd .side { left: var(--edge); }
 .page.odd .main { left: calc(var(--edge) + var(--side-w)); }
+/* on an odd page the column ends at the edge of the paper's margin, not at the grey column,
+   and text may run nearly to it, as it does in Word; pictures and music keep their width */
+.page.odd.service .main > .text { margin-right: calc(-0.05in * var(--scale)); }
 .page.even .main { left: var(--edge); padding: 0 0.07in 0 0.04in; }
 .page.even .side { right: var(--edge); }
 .page.extra .main { left: calc(0.5in * var(--scale)); width: calc(var(--page-w) - 1in * var(--scale)); padding: 0; }
@@ -86,8 +89,12 @@
 .main figure { margin: 4pt 0 0; text-align: center; line-height: 0; }
 .main figure .crop { display: inline-block; overflow: hidden; max-width: 100%; }
 .main figure img { width: 100%; display: block; }
-.main .continues { position: absolute; bottom: 0; right: 0.1in; margin: 0; font-style: italic; font-size: var(--note-size); line-height: 1; }
-.page.even .main .continues { right: auto; left: 0.14in; }
+/* "continued on the following page…" sits under the foot of the column, level with the page
+   number, at the column's outer side, where the page number cannot be */
+.page > .continues { position: absolute; top: calc(var(--page-h) - var(--bottom) + 0.02in * var(--vscale)); margin: 0;
+                     font-style: italic; font-size: var(--note-size); line-height: 1; }
+.page.odd > .continues { right: calc(var(--edge) + 0.1in * var(--scale)); }
+.page.even > .continues { left: calc(var(--edge) + 0.14in * var(--scale)); }
 .sc { font-variant: small-caps; }
 /* words set larger or smaller than the text around them */
 .lg { font-size: 1.3em; line-height: 1.15; }

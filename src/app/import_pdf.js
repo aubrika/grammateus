@@ -359,14 +359,19 @@ function pictureGroups(images) {
 function stitch(group) {
   const width = Math.min(2000, Math.max(...group.strips.map((s) => s.canvas.width)));
   const heights = group.strips.map((s) => Math.round(s.canvas.height * width / s.canvas.width));
+  // music carried over from the page before is joined with a little white between the two
+  // parts: the page break was often right under a line of music, and the layout breaks
+  // music only where a white band runs right across
+  const gap = Math.round(width * 0.03);
+  const gaps = group.strips.map((s) => (s.seam ? gap : 0));
   const canvas = document.createElement("canvas");
   canvas.width = width;
-  canvas.height = heights.reduce((a, b) => a + b, 0);
+  canvas.height = heights.reduce((a, b) => a + b, 0) + gaps.reduce((a, b) => a + b, 0);
   const g = canvas.getContext("2d");
   g.fillStyle = "#fff";
   g.fillRect(0, 0, canvas.width, canvas.height);
   let y = 0;
-  group.strips.forEach((s, i) => { g.drawImage(s.canvas, 0, y, width, heights[i]); y += heights[i]; });
+  group.strips.forEach((s, i) => { y += gaps[i]; g.drawImage(s.canvas, 0, y, width, heights[i]); y += heights[i]; });
   // photographs are smaller as JPEG; music and line art stay sharp as PNG
   const probe = document.createElement("canvas");
   probe.width = probe.height = 32;
@@ -490,7 +495,8 @@ async function servicePages(pages, body, addImage, tick) {
     const carried = blocks.at(-1);
     if (carried?._continues && carried.type === "image" && pageBlocks[0]?.type === "image"
         && Math.abs(carried._group.width - pageBlocks[0]._group.width) < 12) {
-      carried._group = { ...carried._group, strips: [...carried._group.strips, ...pageBlocks[0]._group.strips] };
+      const [first, ...rest] = pageBlocks[0]._group.strips;
+      carried._group = { ...carried._group, strips: [...carried._group.strips, { ...first, seam: true }, ...rest] };
       if (pageBlocks[0].note) carried.note = carried.note ? `${carried.note}<br><br>${pageBlocks[0].note}` : pageBlocks[0].note;
       pageBlocks.shift();
     }
@@ -661,6 +667,18 @@ function pictureRows(blocks) {
   return out;
 }
 
+// The Lord's Prayer is said from one page, so it is kept on one: the text under a heading
+// that names it, or text that begins with its first words.
+const LORDS_PRAYER = /lord.?s prayer|prayer of jesus|our father/i;
+function keepPrayers(blocks) {
+  blocks.forEach((b, i) => {
+    const before = blocks[i - 1];
+    if (b.type === "text" && ((before?.type === "heading" && LORDS_PRAYER.test(before.text)) ||
+        /^\s*our father\b/i.test(b.html.replace(/<[^>]+>/g, "")))) b.keep = true;
+  });
+  return blocks;
+}
+
 const strip = (blocks) => blocks.map((b) => Object.fromEntries(Object.entries(b).filter(([k]) => !k.startsWith("_"))));
 
 // ---------------------------------------------------------------- the whole file
@@ -747,8 +765,8 @@ export async function buildBulletin({ pages, count }, first, last, progress = as
   }
 
   // the paragraphs of a reading or a prayer are one item, so they are edited as one
-  doc.service = joinRuns(strip(await servicePages(pages.slice(first - 1, last), body, addImage,
-    (message, part) => progress(message, 0.65 + 0.25 * part))));
+  doc.service = keepPrayers(joinRuns(strip(await servicePages(pages.slice(first - 1, last), body, addImage,
+    (message, part) => progress(message, 0.65 + 0.25 * part)))));
 
   const backNumber = count > last ? count : 0;
   for (let number = last + 1; number < count; number++) {
