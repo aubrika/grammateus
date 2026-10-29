@@ -17,6 +17,10 @@ Status: early, and in use for testing. The editing screen, the page layout and t
 Windows installer all work on Windows 10. The Mac and Linux versions are built the same
 way but have not yet been tried on those systems.
 
+**To download and install Grammateus, go to
+[grammateus-releases](https://github.com/aubrika/grammateus-releases)**, which has the
+installers and how to install them. This repository holds the source code.
+
 ## What it does
 
 - **An editing screen** with three parts: an outline of the bulletin, a form for the
@@ -84,11 +88,12 @@ npm start          # the desktop program
 npm test
 ```
 
-The installers are on the repository's Releases page: for Windows (adds Grammateus to the
-Start menu), for Mac (a `.dmg` that runs on both Apple and Intel processors), and for
-Linux (an AppImage and a `.deb` package). The workflow in `.github/workflows/build.yml`
-builds each one on its own system on every push, and publishes them as a release when a
-tag is pushed: set the version in `package.json`, then
+The workflow in `.github/workflows/build.yml` builds the installers, each on its own
+system, on every push: for Windows (adds Grammateus to the Start menu), for Mac (a `.dmg`
+that runs on both Apple and Intel processors), and for Linux (an AppImage and a `.deb`
+package). When a tag is pushed, it also publishes them as a pre-release on this
+repository's Releases page, for testing; installed copies do not update from there. To make
+a pre-release: set the version in `package.json`, then
 `git tag v0.2.0 && git push origin v0.2.0`. `npm run dist`, `npm run dist:mac` and
 `npm run dist:linux` build one by hand.
 
