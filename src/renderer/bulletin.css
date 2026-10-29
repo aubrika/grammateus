@@ -16,6 +16,7 @@
   --dark: #7f7f7f;
   --serif: "EB Garamond", serif;   /* the bundled font; a bulletin may name another */
   --note-size: 12pt;
+  --leading: 1.127;        /* line spacing, as a multiple of the text size; a bulletin may set its own */
 }
 
 * { box-sizing: border-box; }
@@ -23,7 +24,7 @@
 .page { --edge: calc(0.25in * var(--scale)); --top: calc(0.5in * var(--vscale)); --bottom: calc(0.5in * var(--vscale));
         --side-w: calc(2.5in * var(--scale)); }
 .page { position: relative; width: var(--page-w); height: var(--page-h); background: #fff; overflow: hidden;
-        break-after: page; font-family: var(--serif); font-size: 15pt; line-height: 1.127; color: #000;
+        break-after: page; font-family: var(--serif); font-size: 15pt; line-height: var(--leading); color: #000;
         font-variant-numeric: lining-nums; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
 /* ---- service pages ---- */
@@ -96,7 +97,7 @@
 sup { font-size: 0.62em; line-height: 0; vertical-align: super; }
 
 /* ---- side notes ---- */
-.side .note { position: absolute; left: 0.04in; right: 0.04in; font-style: italic; font-size: var(--note-size); line-height: 1.225; }
+.side .note { position: absolute; left: 0.04in; right: 0.04in; font-style: italic; font-size: var(--note-size); line-height: calc(var(--leading) * 1.087); }
 .side .note img { display: block; max-width: 70%; margin: 0.06in auto 0; }
 .side .note u { font-style: italic; }
 

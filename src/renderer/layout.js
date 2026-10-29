@@ -62,8 +62,12 @@ function blockElement(block, src) {
       return row;
     }
     default: {
-      // a blank line inside a block is a paragraph gap, set closer than a full line
-      const p = el("p", `text${block.align === "center" ? " center" : ""}${block.shaded ? " shaded" : ""}`, (block.html || "").replace(/<br>\s*<br>/g, '<span class="gap"></span>'));
+      // a blank line inside a block is a paragraph gap, set closer than a full line; blank
+      // lines at its start or end stay whole lines, a way to move the words, or what
+      // follows them, down the page
+      const [, lead, body, tail] = /^((?:\s*<br>)*)([\s\S]*?)((?:<br>\s*)*)$/.exec(block.html || "");
+      const p = el("p", `text${block.align === "center" ? " center" : ""}${block.shaded ? " shaded" : ""}`,
+        lead + body.replace(/<br>\s*<br>/g, '<span class="gap"></span>') + tail);
       if (block.float) {                     // a picture set into the side of the paragraph
         const img = el("img", block.floatSide === "left" ? "float left" : "float");
         img.src = src(block.float);
@@ -380,6 +384,8 @@ export async function layoutBulletin(doc, pages, base = "") {
   sizeRule.textContent = `@page { size: ${paper.w}in ${paper.h}in; margin: 0; }`;
   // a white side column saves toner; the notes still sit in it
   if (style.whiteSide) pages.style.setProperty("--grey", "#fff"); else pages.style.removeProperty("--grey");
+  // line spacing for the whole bulletin; an item may still have its own
+  if (style.leading) pages.style.setProperty("--leading", String(style.leading)); else pages.style.removeProperty("--leading");
   fonts = style.fonts || {};
   sizes = style.sizes || {};
   defaultSize = style.size || 14.5;

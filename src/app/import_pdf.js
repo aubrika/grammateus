@@ -8,13 +8,12 @@
 // Measurements are in points (72 to the inch), with y running down the page.
 
 import * as pdfjs from "../../node_modules/pdfjs-dist/build/pdf.min.mjs";
-import { PAPERS, normalize } from "./doc.js";
+import { LEADING, PAPERS, normalize } from "./doc.js";
 import { followPointers } from "../pdf_pictures.mjs";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("../../node_modules/pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
 const IN = 72;
-const LEADING = 1.127;                  // the usual line spacing, as set in bulletin.css
 const escapeHtml = (t) => t.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
 const median = (v) => { const s = [...v].sort((a, b) => a - b); return s.length ? s[s.length >> 1] : 0; };
 

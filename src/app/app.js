@@ -2,7 +2,7 @@
 // in the middle, and a live preview of the pages on the right.
 
 import { layoutBulletin } from "../renderer/layout.js";
-import { BLOCK_NAMES, FONT_KINDS, NOTE_SIZE, PAPERS, SIZE_KINDS, addImage, cleanHtml, emptyBulletin, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "./doc.js";
+import { BLOCK_NAMES, FONT_KINDS, LEADING, LEADING_RANGE, NOTE_SIZE, PAPERS, SIZE_KINDS, addImage, cleanHtml, emptyBulletin, move, newBlock, newPart, normalize, placeLast, pruneImages, summary } from "./doc.js";
 
 const $ = (id) => document.getElementById(id);
 const desk = window.desk || null;            // provided by the desktop program; absent in a plain browser
@@ -114,21 +114,24 @@ function fontField(label, get, set, placeholder, extra) {
 
 const imageUrl = (ref) => (ref && ref.startsWith("img:") ? doc.images[ref.slice(4)] : ref) || "";
 
-// A box for formatted text. Pasting keeps bold, italic, small capitals and line breaks and
-// drops everything else, so text from Word or a web page arrives clean.
-function rich(html, set, { note = false } = {}) {
-  const box = h("div", { class: "box", contenteditable: "true", spellcheck: "true" });
+// Pasting keeps bold, italic, small capitals and line breaks and drops everything else, so
+// text from Word or a web page arrives clean.
+function pasteClean(e) {
+  e.preventDefault();
+  const data = e.clipboardData;
+  const pasted = data.getData("text/html")
+    ? cleanHtml(data.getData("text/html"))
+    : data.getData("text/plain").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c])).replace(/\r?\n/g, "<br>");
+  document.execCommand("insertHTML", false, pasted);
+}
+
+// A box for formatted text. What is typed keeps its blank lines and spaces, at the ends too.
+function rich(html, set, { note = false, field } = {}) {
+  const box = h("div", { class: "box", contenteditable: "true", spellcheck: "true", "data-field": field });
   box.innerHTML = html || "";
-  const commit = () => { set(cleanHtml(box.innerHTML)); changed(); };
+  const commit = () => { set(cleanHtml(box.innerHTML, document, { typed: true })); changed(); };
   box.addEventListener("input", commit);
-  box.addEventListener("paste", (e) => {
-    e.preventDefault();
-    const data = e.clipboardData;
-    const pasted = data.getData("text/html")
-      ? cleanHtml(data.getData("text/html"))
-      : data.getData("text/plain").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c])).replace(/\r?\n/g, "<br>");
-    document.execCommand("insertHTML", false, pasted);
-  });
+  box.addEventListener("paste", pasteClean);
   const fmt = (label, title, run) => {
     const b = h("button", { type: "button", title }, label);
     b.addEventListener("mousedown", (e) => e.preventDefault());       // keep the selection
@@ -322,6 +325,15 @@ function coverForm(form) {
   pictureField(form, "Cover picture", () => doc.cover.image, (v) => (doc.cover.image = v));
 }
 
+// Line spacing, as a multiple of the text size. Empty means the spacing of whatever it
+// follows: the bulletin's own, or the program's.
+function leadingField(label, get, set, placeholder) {
+  const [min, max] = LEADING_RANGE;
+  const input = h("input", { type: "number", min, max, step: 0.01, value: get() || "", placeholder: String(placeholder) });
+  input.addEventListener("input", () => { const v = parseFloat(input.value); set(v >= min && v <= max ? v : undefined); changed(false); });
+  return [h("label", {}, label), input];
+}
+
 function sizeField(label, get, set, min, max) {
   const input = h("input", { type: "number", value: get(), min, max, step: "0.5" });
   input.addEventListener("input", () => { const v = parseFloat(input.value); if (v >= min && v <= max) { set(v); changed(false); } });
@@ -336,6 +348,9 @@ function designForm(form) {
     ...fontField("Font for the whole bulletin", () => doc.style.font, (v) => (doc.style.font = v || "EB Garamond"), "EB Garamond"),
     ...sizeField("Default font size (points)", () => doc.style.size, (v) => (doc.style.size = v), 8, 22),
     h("p", { class: "hint" }, "Every part uses this size unless the part is given a size of its own."),
+    ...leadingField("Line spacing (times the text size)", () => doc.style.leading, (v) => { if (v) doc.style.leading = v; else delete doc.style.leading; }, LEADING),
+    h("p", { class: "hint" }, `For all the text in the bulletin; leave it empty for the usual ${LEADING}. Side notes are spaced a little more ` +
+      "openly, in proportion. Any item can have its own spacing as well, where you edit it."),
     checkbox("White side column, to save toner (the notes stay where they are)", !!doc.style.whiteSide,
       (v) => { if (v) doc.style.whiteSide = true; else delete doc.style.whiteSide; }),
     h("h2", {}, "A different font or size for one kind of item"),
@@ -506,13 +521,12 @@ function blockForm(form, p, i) {
     form.append(h("label", {}, "Pictures, side by side"), rowEl, h("div", { class: "tools" },
       h("button", { onclick: async () => { const d = await pickImage(); if (d) { block.images.push(addImage(doc, d)); changed(); drawForm(); } } }, "Add a picture…")));
   } else {
-    form.append(h("label", {}, "Text"), rich(block.html, (v) => (block.html = v)),
-      h("p", { class: "hint" }, "Bold is for words everyone says together. Italic is for instructions. Press Shift+Enter for a new line; leave a blank line for a new paragraph."),
+    form.append(h("label", {}, "Text"), rich(block.html, (v) => (block.html = v), { field: "html" }),
+      h("p", { class: "hint" }, "Bold is for words everyone says together. Italic is for instructions. Press Shift+Enter for a new line; leave a blank line for a new paragraph. " +
+        "Blank lines or spaces at the start or end are kept, to move the words (or what follows them) down or across. " +
+        "You can also type straight into the words on the pages."),
       checkbox("Centred", block.align === "center", (v) => { if (v) block.align = "center"; else delete block.align; }),
       checkbox("Grey behind it", block.shaded, (v) => { if (v) block.shaded = true; else delete block.shaded; }));
-    const leading = h("input", { type: "number", min: 0.9, max: 2, step: 0.01, value: block.leading || "", placeholder: "1.13" });
-    leading.addEventListener("input", () => { const v = parseFloat(leading.value); if (v >= 0.9 && v <= 2) block.leading = v; else delete block.leading; changed(false); });
-    form.append(h("label", {}, "Line spacing (optional, times the text size)"), leading);
     pictureField(form, "Picture set into this text (optional)", () => block.float, (v) => { if (v) block.float = v; else { delete block.float; delete block.floatSide; delete block.floatWidth; } });
     if (block.float) {
       const side = h("select", {}, ...[["", "On the right"], ["left", "On the left"]].map(([v, t]) => h("option", { value: v, selected: (block.floatSide || "") === v }, t)));
@@ -543,7 +557,9 @@ function blockForm(form, p, i) {
         h("p", { class: "hint" }, kindSize
           ? `Leave this empty to use the size chosen for all ${FONT_KINDS[block.type]} under Design, which is ${kindSize} points.`
           : `Leave this empty to use the size of “${part.name}”, which is ${part.size || doc.style.size} points` +
-            (block.type === "section" ? " (section titles are drawn larger than that)." : ".")));
+            (block.type === "section" ? " (section titles are drawn larger than that)." : ".")),
+        ...leadingField("Line spacing for this item (optional, times the text size)", () => block.leading,
+          (v) => { if (v) block.leading = v; else delete block.leading; }, doc.style.leading || LEADING));
     }
   }
 
@@ -566,6 +582,7 @@ function blockForm(form, p, i) {
 let timer = 0;
 let running = false;
 let again = false;
+let editing = null;                            // { p, i, pieces }: a text item being typed in on the pages
 
 function schedulePreview() {
   clearTimeout(timer);
@@ -574,6 +591,7 @@ function schedulePreview() {
 
 async function updatePreview() {
   if (fitting) return;                         // the pages are being measured at other sizes
+  if (editing) { again = true; return; }       // words are being typed on the pages; they are laid out after
   if (running) { again = true; return; }
   running = true;
   try {
@@ -608,9 +626,76 @@ function highlight(scroll) {
 
 $("shown").addEventListener("click", (e) => {
   const block = e.target.closest("[data-index]");
-  if (block) return select("block", Number(block.dataset.part), Number(block.dataset.index), true);
+  if (block) {
+    const p = Number(block.dataset.part), i = Number(block.dataset.index);
+    // a second click on the same item only places the cursor in its words
+    if (selected.kind !== "block" || selected.p !== p || selected.i !== i) select("block", p, i, true);
+    return;
+  }
   // a click on the empty paper of a page chooses nothing, so the view never jumps
   if (e.target.closest('.page[data-part="cover"]')) select("cover", 0, 0, true);
+});
+
+// ---------------------------------------------------------------- typing on the pages
+//
+// A text item can be edited where it is printed: pressing on its words in the pages makes
+// them editable in place (a paragraph that runs onto a second page is edited in its two
+// pieces). The pages are not laid out again while typing, which would lose the place being
+// typed at; that waits until the typing moves somewhere else.
+
+// The words of the pieces of a paragraph as the bulletin holds them: without the picture set
+// into it, and with the closer paragraph gaps as the blank lines they stand for.
+function typedHtml(pieces) {
+  return cleanHtml(pieces.map((piece) => {
+    const copy = piece.cloneNode(true);
+    copy.querySelectorAll("img.float").forEach((img) => img.remove());
+    copy.querySelectorAll("span.gap").forEach((gap) => gap.replaceWith(document.createElement("br"), document.createElement("br")));
+    return copy.innerHTML;
+  }).join(""), document, { typed: true });
+}
+
+function startEditing(p, i) {
+  finishEditing();
+  const pieces = [...$("shown").querySelectorAll(`.text[data-part="${p}"][data-index="${i}"]`)];
+  if (!pieces.length) return;
+  editing = { p, i, pieces };
+  for (const piece of pieces) {
+    piece.contentEditable = "true";
+    piece.spellcheck = true;
+    piece.querySelectorAll("img").forEach((img) => (img.contentEditable = "false"));
+  }
+}
+
+function finishEditing() {
+  if (!editing) return;
+  const { pieces } = editing;
+  editing = null;
+  pieces.forEach((piece) => piece.removeAttribute("contenteditable"));
+  changed();                                   // lays the pages out again, with the outline
+}
+
+$("shown").addEventListener("mousedown", (e) => {
+  const piece = e.target.closest(".main .text[data-index]");
+  if (!piece || e.button !== 0) return;
+  const p = Number(piece.dataset.part), i = Number(piece.dataset.index);
+  if (doc.parts[p]?.blocks[i]?.type !== "text") return;
+  if (!editing || editing.p !== p || editing.i !== i) startEditing(p, i);
+});
+$("shown").addEventListener("input", (e) => {
+  if (!editing || !editing.pieces.includes(e.target.closest(".text"))) return;
+  const block = doc.parts[editing.p].blocks[editing.i];
+  block.html = typedHtml(editing.pieces);
+  // the form beside shows the same words as they are typed
+  const box = $("form").querySelector('.rich .box[data-field="html"]');
+  if (box && selected.kind === "block" && selected.p === editing.p && selected.i === editing.i) box.innerHTML = block.html;
+  dirty = true;
+  scheduleSnapshot();
+  showStatus();
+});
+$("shown").addEventListener("paste", (e) => { if (editing && e.target.closest("[contenteditable]")) pasteClean(e); });
+// typing has moved elsewhere once the focus leaves every piece of the paragraph
+$("shown").addEventListener("focusout", (e) => {
+  if (editing && !editing.pieces.includes(e.relatedTarget?.closest?.(".text"))) finishEditing();
 });
 
 function showStatus() {

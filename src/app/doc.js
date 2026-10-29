@@ -28,6 +28,11 @@ export const PAPERS = {
 export const SIZE_KINDS = ["section", "heading", "text", "hymn", "note", "roster", "columns"];
 export const NOTE_SIZE = 12;
 
+// Line spacing, as a multiple of the text size, for a bulletin that does not set its own
+// (as in bulletin.css). Any item can have its own as well.
+export const LEADING = 1.127;
+export const LEADING_RANGE = [0.9, 2];
+
 export const BLOCK_NAMES = {
   section: "Section title",
   heading: "Heading",
@@ -87,7 +92,8 @@ export function normalize(doc) {
   // before there was one take the size of their main part
   const main = (doc.parts || []).find((p) => p.side && p.size) || (doc.parts || []).find((p) => p.size);
   const size = doc.style?.size >= 5 ? doc.style.size : main?.size || 14.5;
-  doc.style = { font: doc.style?.font || "EB Garamond", size, fonts, sizes, paper,
+  const leading = doc.style?.leading >= LEADING_RANGE[0] && doc.style.leading <= LEADING_RANGE[1] ? doc.style.leading : 0;
+  doc.style = { font: doc.style?.font || "EB Garamond", size, fonts, sizes, paper, ...(leading ? { leading } : {}),
                 ...(doc.style?.whiteSide ? { whiteSide: true } : {}) };
   doc.wholeSheets = doc.wholeSheets !== false;
   doc.meta = { title: "", sunday: "", date: "", ...(doc.meta || {}) };
@@ -174,7 +180,11 @@ export function pruneImages(doc) {
 
 // Keep only the formatting a bulletin uses: bold, italic, underline, small capitals, larger
 // and smaller words, superscript and line breaks. Word and web pages paste a great deal more than that.
-export function cleanHtml(html, documentRef = globalThis.document) {
+//
+// Pasted text loses blank lines and spaces at its start and end, and runs of blank lines
+// become one. Text typed in the program keeps them all (`typed`): they are a way to move
+// the words down the page, or what follows them, a line at a time.
+export function cleanHtml(html, documentRef = globalThis.document, { typed = false } = {}) {
   const box = documentRef.createElement("template");
   box.innerHTML = html;
   const out = [];
@@ -200,10 +210,21 @@ export function cleanHtml(html, documentRef = globalThis.document) {
       walk(child);
       for (const m of marks) out.push("</span>");
       for (const w of wraps.reverse()) out.push(`</${w}>`);
-      if (BLOCKS.has(tag)) out.push("<br>");
+      // a line of its own ends with a break, unless it already does (an empty line typed in
+      // the program is a block holding just a break)
+      if (BLOCKS.has(tag) && !(typed && out.at(-1) === "<br>")) out.push("<br>");
     }
   };
   walk(box.content);
+  if (typed) {
+    return out.join("")
+      // a no-break space between two words is only how the browser keeps a space it was
+      // typing; other no-break spaces (at the ends, or several together) are spacing
+      .replace(/(?<=[^\s\u00a0>])\u00a0(?=[^\s\u00a0<])/g, " ")
+      .replace(/\u00a0/g, "&nbsp;")
+      .replace(/<(b|i|u|sup)><\/\1>/g, "")
+      .replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, "");
+  }
   return out.join("")
     .replace(/ /g, " ")
     .replace(/<(b|i|u|sup)><\/\1>/g, "")

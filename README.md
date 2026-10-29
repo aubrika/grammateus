@@ -25,7 +25,7 @@ installers and how to install them. This repository holds the source code.
 
 - **An editing screen** with three parts: an outline of the bulletin, a form for the
   part you select, and a live preview of the pages. Click anything in the preview to
-  edit it.
+  edit it; the words of a text item can be typed straight into on the page.
 - **Parts.** A bulletin is a cover followed by parts: by default a welcome page, the
   service, extra pages and a back page. Every part can hold every kind of item, each
   part chooses whether its pages have the grey side column for notes, and parts can be
@@ -38,7 +38,9 @@ installers and how to install them. This repository holds the source code.
 - **Side notes stay beside their part.** Each note belongs to a part of the service
   and is printed next to wherever that part lands.
 - **Pasting is clean.** Text pasted from Word or a web page keeps bold, italic, small
-  capitals and line breaks, and loses everything else.
+  capitals and line breaks, and loses everything else. Blank lines and spaces typed at
+  the start or end of a text item are kept, as a way to move it, or what follows it,
+  down or across a little.
 - **Whole sheets.** A folded bulletin is made of sheets of four pages. The program
   pads to a multiple of four with blank pages before the back cover, and extra sheets
   (for announcements and the like) are added or removed with one button. The padding
@@ -53,6 +55,7 @@ installers and how to install them. This repository holds the source code.
   bulletin, for one kind of item (all headings, all side notes), or for a single item.
   Text sizes work the same way: a default size for the whole bulletin, which a part, a
   kind of item (all headings, say, or all side notes) or a single item can override.
+  Line spacing too: one setting for the whole bulletin, which a single item can override.
 - **Make PDF** writes the pages in reading order, ready for a copier that folds and
   staples.
 - **Paper sizes.** Letter pages (printed on 11 × 17 in sheets) by default; half letter,
