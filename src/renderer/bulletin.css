@@ -57,6 +57,8 @@
 .roster-title { text-align: center; font-weight: 700; padding: 3pt 0; }
 .roster-row { display: flex; align-items: baseline; gap: 2pt; padding: 3pt 0; }
 .roster-row > span { min-width: 0; }
+/* the role keeps to one line, up to half the width; long names wrap instead */
+.roster-row > span:first-child { flex: 0 0 auto; max-width: 50%; }
 .roster-row .right { text-align: right; flex: 0 1 auto; max-width: 85%; }
 /* a row of full stops on the baseline. It is laid from the right, so the last dot always
    sits against the name, and it is cut off on the left where the role ends. */

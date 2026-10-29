@@ -442,6 +442,14 @@ function looksLikeService(page) {
   return inMain >= 3 && inNote >= 3 && across <= 2;
 }
 
+// A side note's words as the bulletin keeps them.
+function noteHtml(html) {
+  // the title is on a line of its own already; it needs no second break under it
+  let text = html.replace(/^(<i>)?Hymn Information\s*(<\/i>)?\s*(?:<br>)?\s*/, (_, open = "", close = "") => `${open}<u>Hymn Information</u><br>${close}`);
+  if ((text.match(/<i>/g) || []).length === 1) text = text.replace(/^<i>([\s\S]*)<\/i>$/, "$1");   // notes are italic anyway
+  return text;
+}
+
 async function servicePages(pages, body, addImage, tick) {
   const blocks = [];
   for (const [done, page] of pages.entries()) {
@@ -480,9 +488,7 @@ async function servicePages(pages, body, addImage, tick) {
       if (!pageBlocks.length) continue;
       const cost = (b) => (b._top <= note._top + 9 ? Math.abs(b._top - note._top) : 1e6 + b._top);
       const anchor = pageBlocks.reduce((best, b) => (cost(b) < cost(best) ? b : best));
-      // the title is on a line of its own already; it needs no second break under it
-      let text = note.html.replace(/^(<i>)?Hymn Information\s*(<\/i>)?\s*(?:<br>)?\s*/, (_, open = "", close = "") => `${open}<u>Hymn Information</u><br>${close}`);
-      if ((text.match(/<i>/g) || []).length === 1) text = text.replace(/^<i>([\s\S]*)<\/i>$/, "$1");   // notes are italic anyway
+      const text = noteHtml(note.html);
       anchor.note = anchor.note ? `${anchor.note}<br><br>${text}` : text;
       note._anchor = anchor;
     }
@@ -654,6 +660,32 @@ function fullWidthPage(page, addImage, { announcements = false, fine = false } =
   return blocks.sort((a, b) => a._top - b._top);
 }
 
+// A page after the service may set its note on a grey box where the side column would be,
+// beside text set as the service is (the dismissal, say), with other things below across the
+// page. It is a page of the service: the text and its note are read as on a service page,
+// and the rest as on a page without a side column. Returns its blocks, or null for a page
+// that is not like this.
+function sideNotePage(page, body, addImage) {
+  const { mainL, mainR, noteL, noteR } = columnsOf(page);
+  const box = greyBoxes(page).find((b) => b.left >= noteL - 6 && b.right <= noteR + 6);
+  if (!box) return null;
+  const blocks = fullWidthPage(page, addImage);
+  const pair = blocks.find((b) => b.type === "columns" && b.shaded?.includes(b.columns.length - 1));
+  if (!pair) return null;
+  const texts = page.texts.filter((t) => t.text.trim() && t.base >= pair._top - 2 && t.top <= pair._bottom + 2);
+  const inBox = (t) => t.left >= box.left - 4 && t.right <= box.right + 4;
+  const main = paragraphs(linesOf(texts.filter((t) => !inBox(t)), body), mainL + 3, mainR - 5, body);
+  const noteTexts = texts.filter(inBox), noteBody = bodySize([{ texts: noteTexts }]);
+  const notes = paragraphs(linesOf(noteTexts, noteBody), box.left + 3, box.right - 4, noteBody, { special: false });
+  if (!main.length) return null;
+  if (notes.length) main[0].note = notes.map((n) => noteHtml(n.html)).join("<br><br>");
+  // what was across the whole page now has the main column: pictures keep their printed size
+  const column = mainR - mainL - 0.11 * IN, across = page.width - IN;
+  for (const b of blocks) if (b.type === "image" && b.width) b.width = `${Math.min(100, Math.round(parseFloat(b.width) * across / column))}%`;
+  blocks.splice(blocks.indexOf(pair), 1, ...main);
+  return blocks;
+}
+
 // Pictures printed side by side become one row of pictures.
 function pictureRows(blocks) {
   const out = [];
@@ -769,8 +801,12 @@ export async function buildBulletin({ pages, count }, first, last, progress = as
     (message, part) => progress(message, 0.65 + 0.25 * part)))));
 
   const backNumber = count > last ? count : 0;
+  let serviceEnd = last;
   for (let number = last + 1; number < count; number++) {
     await progress(`Rebuilding page ${number}…`, 0.9 + 0.08 * (number - last) / Math.max(1, count - last));
+    // a page straight after the service that has its side note where the side column is
+    const more = number === serviceEnd + 1 && sideNotePage(at(number), body, addImage);
+    if (more) { doc.service = keepPrayers(joinRuns([...doc.service, ...strip(more)])); serviceEnd = number; continue; }
     const blocks = fullWidthPage(at(number), addImage, { announcements: true });
     if (!blocks.length) continue;
     if (doc.extras.length) doc.extras.push({ type: "pagebreak" });
